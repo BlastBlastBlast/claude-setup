@@ -128,3 +128,12 @@ setup() { load_wt; }
   [[ "$output" == *"trusthere/feature/maptiler" ]]
   [ "$output" != "trusthere/feature/maptiler" ]
 }
+
+@test "wt new reports adding .worktrees to .gitignore" {
+  repo="$(make_temp_repo)"
+  cd "$repo"
+  unset CMUX_SOCKET_PATH
+  run main new feature/foo
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"added '.worktrees/' to .gitignore"* ]]
+}
