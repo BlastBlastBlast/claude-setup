@@ -137,3 +137,51 @@ setup() { load_wt; }
   [ "$status" -eq 0 ]
   [[ "$output" == *"added '.worktrees/' to .gitignore"* ]]
 }
+
+@test "wt new links a gitignored .env into the worktree as a symlink" {
+  repo="$(make_temp_repo)"
+  cd "$repo"
+  unset CMUX_SOCKET_PATH
+  printf '.env\n' > "$repo/.gitignore"
+  printf 'EXAMPLE_VAR=1\n' > "$repo/.env"
+  run main new feature/foo
+  [ "$status" -eq 0 ]
+  [ -L "$repo/.worktrees/feature-foo/.env" ]
+  [ "$(readlink "$repo/.worktrees/feature-foo/.env")" = "../../.env" ]
+  [[ "$output" == *"linked .env"* ]]
+}
+
+@test "wt new warns and does not link a .env that is not gitignored" {
+  repo="$(make_temp_repo)"
+  cd "$repo"
+  unset CMUX_SOCKET_PATH
+  printf 'EXAMPLE_VAR=1\n' > "$repo/.env"
+  run main new feature/foo
+  [ "$status" -eq 0 ]
+  [ ! -e "$repo/.worktrees/feature-foo/.env" ]
+  [[ "$output" == *"not gitignored"* ]]
+}
+
+@test "wt new honors WT_LINK_FILES to link extra gitignored files" {
+  repo="$(make_temp_repo)"
+  cd "$repo"
+  unset CMUX_SOCKET_PATH
+  printf '.env\nmyconf\n' > "$repo/.gitignore"
+  printf 'EXAMPLE_VAR=1\n' > "$repo/.env"
+  printf 'k=v\n' > "$repo/myconf"
+  WT_LINK_FILES=".env myconf" run main new feature/foo
+  [ "$status" -eq 0 ]
+  [ -L "$repo/.worktrees/feature-foo/.env" ]
+  [ -L "$repo/.worktrees/feature-foo/myconf" ]
+}
+
+@test "wt new skips WT_LINK_FILES entries that contain a slash" {
+  repo="$(make_temp_repo)"
+  cd "$repo"
+  unset CMUX_SOCKET_PATH
+  mkdir -p "$repo/sub"; printf 'x=1\n' > "$repo/sub/file"
+  WT_LINK_FILES="sub/file" run main new feature/foo
+  [ "$status" -eq 0 ]
+  [ ! -e "$repo/.worktrees/feature-foo/sub/file" ]
+  [[ "$output" == *"only repo-root files are linked"* ]]
+}
