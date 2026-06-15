@@ -60,11 +60,20 @@ _make_worktree() {
 # True only when running inside cmux with the CLI available.
 _in_cmux() { [ -n "${CMUX_SOCKET_PATH:-}" ] && command -v cmux >/dev/null 2>&1; }
 
-# Open a cmux workspace running claude in <path>; print a manual hint otherwise.
+# Human label for a cmux workspace tab: "<repo>/<branch>" so the tab shows which
+# repo + worktree it belongs to. Args: <repo-root> <branch>.
+_workspace_label() { printf '%s/%s' "$(basename "$1")" "$2"; }
+
+# Open a cmux workspace running claude in <path>, labeled <name>; print a manual
+# hint otherwise. Args: <path> [name].
 _cmux_open() {
-  local path="$1"
+  local path="$1" name="${2:-}"
   if _in_cmux; then
-    cmux new-workspace --cwd "$path" --command "claude"
+    if [ -n "$name" ]; then
+      cmux new-workspace --name "$name" --cwd "$path" --command "claude"
+    else
+      cmux new-workspace --cwd "$path" --command "claude"
+    fi
   else
     echo "wt: not inside cmux — open a session manually:" >&2
     echo "  cd \"$path\" && claude" >&2
@@ -92,7 +101,7 @@ cmd_new() {
   root="$(_repo_root)" || { echo "wt: not in a git repo" >&2; return 1; }
   branch="$(_resolve_branch "$arg")"
   dir="$(_make_worktree "$root" "$branch")"
-  _cmux_open "$dir"
+  _cmux_open "$dir" "$(_workspace_label "$root" "$branch")"
   # All wt informational output goes to stderr; only `wt here` emits the worktree
   # path on stdout (its cd-"$(...)" contract). `wt new` opens a new tab, so its
   # stdout has no contract.
@@ -104,9 +113,9 @@ cmd_here() {
   root="$(_repo_root)" || { echo "wt: not in a git repo" >&2; return 1; }
   branch="$(_resolve_branch "$arg")"
   dir="$(_make_worktree "$root" "$branch")"
-  # Label the current cmux tab (best-effort; skipped outside cmux).
+  # Label the current cmux tab "<repo>/<branch>" (best-effort; skipped outside cmux).
   if _in_cmux; then
-    cmux rename-workspace "$branch" >/dev/null 2>&1 || true
+    cmux rename-workspace "$(_workspace_label "$root" "$branch")" >/dev/null 2>&1 || true
   fi
   echo "wt: cd into your isolated worktree with:  cd \"\$(wt here${arg:+ $arg})\"" >&2
   echo "wt: branch '$branch' (rename later: git branch -m <name>)" >&2
