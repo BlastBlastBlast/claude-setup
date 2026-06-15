@@ -48,6 +48,10 @@ _assert_valid_skill() {
   _assert_valid_skill "$SKILLS_DIR/lang-js/SKILL.md"
 }
 
+@test "lang-go skill has valid frontmatter and a routing description" {
+  _assert_valid_skill "$SKILLS_DIR/lang-go/SKILL.md"
+}
+
 @test "_assert_valid_skill rejects a SKILL.md whose frontmatter is not closed" {
   local d="${BATS_TEST_TMPDIR}/unclosed"
   mkdir -p "$d"
