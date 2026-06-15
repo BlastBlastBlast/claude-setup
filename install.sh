@@ -28,6 +28,8 @@ links() {
   link_file "$REPO_DIR/bin/wt"             "$HOME/.local/bin/wt"
   link_file "$REPO_DIR/bin/promote-skill"  "$HOME/.local/bin/promote-skill"
   link_file "$REPO_DIR/bin/claude-guard-destructive" "$HOME/.local/bin/claude-guard-destructive"
+  link_file "$REPO_DIR/shell/zshrc"                 "$HOME/.zshrc"
+  link_file "$REPO_DIR/shell/sheldon/plugins.toml"  "${XDG_CONFIG_HOME:-$HOME/.config}/sheldon/plugins.toml"
 }
 
 # Point this repo's git hooks at the tracked hooks/ dir (secret-scan pre-commit).
