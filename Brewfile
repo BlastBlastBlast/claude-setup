@@ -45,6 +45,8 @@ brew "git-filter-repo"
 brew "git-graph"
 # Git extension for versioning large files
 brew "git-lfs"
+# Scan git repos for secrets (used by this repo's pre-commit hook)
+brew "gitleaks"
 # Development kit for the Java programming language
 brew "openjdk"
 # Open-source build automation tool based on the Groovy and Kotlin DSL
