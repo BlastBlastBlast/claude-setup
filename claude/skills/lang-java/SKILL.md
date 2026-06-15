@@ -101,3 +101,4 @@ description: Use when writing or reviewing Java code — favor immutability, rec
 - Effective Java, 3rd ed. (Joshua Bloch) — Item 1 static factories, Item 9 try-with-resources, Items 10/11 equals & hashCode, Item 17 minimize mutability, Item 18 composition over inheritance, Item 20 interfaces over abstract classes, Item 34 enums, Item 55 return Optionals judiciously, Item 64 program to interfaces: https://www.informit.com/store/effective-java-9780134686059
 - google-java-format (reformats to Google Java Style; Spotless integration): https://github.com/google/google-java-format
 - Error Prone — compile-time bug-pattern static analysis hooked into javac: https://errorprone.info/
+- Checkstyle — style-rule enforcement wired into Maven/Gradle: https://checkstyle.sourceforge.io/

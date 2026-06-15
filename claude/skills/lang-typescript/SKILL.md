@@ -6,9 +6,8 @@ description: Use when writing or reviewing TypeScript code — strict tsconfig, 
 # TypeScript conventions
 
 > Repo-local conventions (`AGENTS.md` / `CLAUDE.md` / `.claude`) take precedence over this skill.
-
-This complements the `lang-js` skill (general JS idioms — `const`, arrow functions, optional
-chaining, ES modules). Here the focus is the **type system**; don't restate JS runtime idioms.
+> Complements `lang-js` (general JS idioms — `const`, arrow functions, ES modules); this skill
+> covers the **type system**, so don't restate JS runtime idioms here.
 
 ## Core idioms
 
