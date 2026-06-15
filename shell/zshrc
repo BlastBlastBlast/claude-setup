@@ -15,6 +15,9 @@ eval "$(/opt/homebrew/bin/brew shellenv)"
 # ── Java ─────────────────────────────────────────────────────────────────────
 export JAVA_HOME="$(brew --prefix openjdk)/libexec/openjdk.jdk/Contents/Home"
 
+# ── Rust (cargo env set by rustup-init) ──────────────────────────────────────
+[[ -f "$HOME/.cargo/env" ]] && source "$HOME/.cargo/env"
+
 # ── Sheldon (plugin manager) ──────────────────────────────────────────────────
 eval "$(sheldon source)"
 
