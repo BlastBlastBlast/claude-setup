@@ -1,6 +1,3 @@
-tap "cutzenfriend/cmdg"
-tap "jandedobbeleer/oh-my-posh"
-tap "jesseduffield/lazygit"
 tap "osx-cross/arm"
 tap "osx-cross/avr"
 tap "qmk/qmk"
@@ -149,7 +146,7 @@ cask "bruno"
 # Universal database tool and SQL client
 cask "dbeaver-community"
 # App to build, share, and run containerized applications
-cask "docker"
+cask "docker-desktop"
 # Disk usage utility
 cask "disk-inventory-x"
 cask "font-fira-code"
