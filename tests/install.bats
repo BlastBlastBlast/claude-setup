@@ -63,6 +63,7 @@ setup() {
   [ "$(readlink "$HOME/.config/cmux/cmux.json")" = "${REPO_ROOT}/cmux/cmux.json" ]
   [ "$(readlink "$HOME/.local/bin/wt")" = "${REPO_ROOT}/bin/wt" ]
   [ "$(readlink "$HOME/.local/bin/promote-skill")" = "${REPO_ROOT}/bin/promote-skill" ]
+  [ "$(readlink "$HOME/.local/bin/claude-guard-destructive")" = "${REPO_ROOT}/bin/claude-guard-destructive" ]
 }
 
 @test "_set_hooks_path points a repo's git hooks at the tracked hooks/ dir" {

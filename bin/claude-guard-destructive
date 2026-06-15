@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# Claude Code PreToolUse(Bash) guard.
+#
+# Blocks "download a remote script and run it in a shell" — curl/wget feeding
+# a shell, in any of its common forms, which a static permissions.deny glob
+# can't reliably match:
+#   curl URL | sh                 (pipe)
+#   wget -O- URL | sudo bash      (pipe, privileged)
+#   bash <(curl URL)              (process substitution)
+#   sh -c "$(curl URL)"           (command substitution)
+#   eval "$(curl URL)"            (eval of command substitution)
+#
+# Destructive commands like `rm -rf /`, `sudo`, and force-push are denied
+# separately via permissions.deny in settings.json (and Claude Code has a
+# built-in circuit breaker for `rm -rf /`); this hook is defense in depth for
+# the fetch-and-execute pattern specifically.
+#
+# Receives the hook payload as JSON on stdin; exit 2 blocks the tool call.
+# Fails open (exit 0) on unparseable input — it is a guard, not the only gate.
+set -euo pipefail
+
+input="$(cat)"
+cmd="$(
+  printf '%s' "$input" | python3 -c \
+    'import json,sys; print(json.load(sys.stdin).get("tool_input",{}).get("command",""))' \
+    2>/dev/null || true
+)"
+
+# A downloader (curl/wget) combined with any shell-execution construct.
+if printf '%s' "$cmd" | grep -Eq \
+  '(curl|wget)[^|]*\|[[:space:]]*(sudo[[:space:]]+)?(ba|z)?sh|(ba|z)?sh[[:space:]]+(-[a-z]+[[:space:]]+)*<\([[:space:]]*(curl|wget)|(ba|z)?sh[[:space:]]+-c[[:space:]]*["'"'"']?\$\([[:space:]]*(curl|wget)|eval[[:space:]]*["'"'"']?\$\([[:space:]]*(curl|wget)'; then
+  echo "Blocked by claude-guard-destructive: fetching a remote script straight into a shell is denied." >&2
+  exit 2
+fi
+
+exit 0
