@@ -65,8 +65,18 @@ setup() {
   [ "$(readlink "$HOME/.local/bin/promote-skill")" = "${REPO_ROOT}/bin/promote-skill" ]
 }
 
-@test "install sets core.hooksPath to the repo hooks dir" {
-  run bash -c "cd '${REPO_ROOT}' && git config --local core.hooksPath"
+@test "_set_hooks_path points a repo's git hooks at the tracked hooks/ dir" {
+  tmprepo="${BATS_TEST_TMPDIR}/hookrepo"
+  mkdir -p "$tmprepo"
+  git -C "$tmprepo" init -q -b main
+
+  # _set_hooks_path acts on $REPO_DIR; point it at the throwaway repo so the test
+  # is isolated and never mutates the checkout it runs in.
+  REPO_DIR="$tmprepo"
+  run _set_hooks_path
+  [ "$status" -eq 0 ]
+
+  run git -C "$tmprepo" config --local core.hooksPath
   [ "$status" -eq 0 ]
   [ "$output" = "hooks" ]
 }
