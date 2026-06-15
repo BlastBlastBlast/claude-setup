@@ -46,6 +46,22 @@ run_brew() {
   fi
 }
 
+# Build stigsb/claude-context-monitor (Go) and symlink the binaries that
+# settings.json references into ~/.local/bin. Needs Go (provided by the Brewfile).
+# Idempotent: re-running just rebuilds at @latest and refreshes the symlinks.
+# Not part of main() — it's a heavier, network-bound step run only by install-full.
+install_context_monitor() {
+  if ! command -v go >/dev/null 2>&1; then
+    echo "Go not found; skipping claude-context-monitor. Install Go, then re-run." >&2
+    return 0
+  fi
+  go install github.com/stigsb/claude-context-monitor/...@latest
+  local gobin
+  gobin="$(go env GOPATH)/bin"
+  link_file "$gobin/claude-statusline"       "$HOME/.local/bin/claude-statusline"
+  link_file "$gobin/claude-context-monitor"  "$HOME/.local/bin/claude-context-monitor"
+}
+
 main() {
   set -euo pipefail
   links

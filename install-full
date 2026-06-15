@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# claude-setup FULL installer: the standard install plus the heavier, network-
+# bound extras. Use this for a complete machine setup; use ./install.sh for the
+# lean path (symlinks + brew bundle) without the Go-built context monitor.
+#
+# Superset of install.sh: it reuses install.sh's functions (no duplication),
+# runs the standard install (symlinks incl. ~/.zshrc, git hooks, brew bundle —
+# which installs the cmux cask), then builds + links the context monitor.
+
+set -euo pipefail
+
+REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Load install.sh's functions without triggering its main (guarded by BASH_SOURCE).
+# shellcheck disable=SC1091
+source "$REPO_DIR/install.sh"
+
+main                     # links (incl. ~/.zshrc) + git hooks + brew bundle (cmux)
+install_context_monitor  # Go build of stigsb/claude-context-monitor + symlinks
+
+echo "claude-setup (full) installed — standard install + context monitor."

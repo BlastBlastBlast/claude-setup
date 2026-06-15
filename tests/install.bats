@@ -84,6 +84,41 @@ setup() {
   [ "$output" = "hooks" ]
 }
 
+@test "install_context_monitor skips cleanly (no symlinks) when Go is absent" {
+  export HOME="${BATS_TEST_TMPDIR}/home"
+  mkdir -p "$HOME/.local/bin"
+
+  # Empty PATH so `command -v go` fails; the function uses only shell builtins
+  # on the skip path, so it still runs and must exit 0 without creating links.
+  PATH="" run install_context_monitor
+
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Go not found"* ]]
+  run test -e "$HOME/.local/bin/claude-statusline"
+  [ "$status" -ne 0 ]
+  run test -e "$HOME/.local/bin/claude-context-monitor"
+  [ "$status" -ne 0 ]
+}
+
+@test "install-full is executable and has valid bash syntax" {
+  [ -x "${REPO_ROOT}/install-full" ]
+  run bash -n "${REPO_ROOT}/install-full"
+  [ "$status" -eq 0 ]
+}
+
+@test "install-full reuses install.sh and runs main then the context monitor" {
+  # Contract: the full installer sources install.sh (no duplication) and invokes
+  # the standard install (main) followed by the heavier context-monitor build.
+  run grep -E 'source .*install\.sh' "${REPO_ROOT}/install-full"
+  [ "$status" -eq 0 ]
+
+  main_line="$(grep -nE '^[[:space:]]*main([[:space:]]|$)' "${REPO_ROOT}/install-full" | head -1 | cut -d: -f1)"
+  mon_line="$(grep -nE '^[[:space:]]*install_context_monitor([[:space:]]|$)' "${REPO_ROOT}/install-full" | head -1 | cut -d: -f1)"
+  [ -n "$main_line" ]
+  [ -n "$mon_line" ]
+  [ "$main_line" -lt "$mon_line" ]
+}
+
 @test "install.sh creates ~/.zshrc symlink pointing into repo" {
   run test -L "$HOME/.zshrc"
   [ "$status" -eq 0 ]

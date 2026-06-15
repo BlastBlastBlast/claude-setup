@@ -31,12 +31,18 @@ the skills make them executable, and the tooling (`wt`, hooks, permissions) enfo
 ```bash
 git clone <repo-url> ~/dev/claude-setup
 cd ~/dev/claude-setup
-./install.sh
+./install-full        # complete setup (recommended on a fresh machine)
+# or: ./install.sh    # lean path — no Go-built context monitor
 ```
 
-`install.sh` is idempotent: it symlinks config into place (backing up any pre-existing real
-files to `*.bak.*`), sets `core.hooksPath` to `hooks/`, and runs `brew bundle`. Re-run it any
-time after pulling changes.
+Two entry points, both idempotent (re-run any time after pulling changes):
+
+- **`install.sh`** (standard, lean) — symlinks config into place (backing up any pre-existing
+  real files to `*.bak.*`, including `~/.zshrc`), sets `core.hooksPath` to `hooks/`, and runs
+  `brew bundle` (which installs the cmux cask among everything else).
+- **`install-full`** — a superset of the above: it runs the full standard install, then builds
+  and symlinks the Go-based context monitor (the heavier, network-bound step). Reuses
+  `install.sh`'s functions, so there's no duplication.
 
 ## What's in here
 
@@ -48,7 +54,7 @@ you open with Claude Code (each repo can still layer its own `CLAUDE.md`/`AGENTS
 | `claude/CLAUDE.md` | `~/.claude/CLAUDE.md` | Universal working principles — research/verify/reuse, complexity & typing discipline, git workflow, commits, tests, security. |
 | `claude/settings.json` | `~/.claude/settings.json` | Model, status line, permissions (allow read-only/safe `git`+`gh`; **deny** reading `.env`/keys/`~/.ssh`), and the `PostToolUse` context-monitor hook. |
 | `claude/skills/` | `~/.claude/skills/` | Global skills — see [Skills](#skills). |
-| `cmux/cmux.json` | `~/.config/cmux/cmux.json` | cmux config + the **"Claude session"** workspace layout (claude pane + shell pane). |
+| `cmux/cmux.json` | `~/.config/cmux/cmux.json` | cmux config + the **"Claude session"** workspace layout (claude pane + shell pane). The cmux app itself is installed via the Brewfile (`cask "cmux"`). |
 | `bin/wt` | `~/.local/bin/wt` | git worktree + cmux session lifecycle — see [Parallel sessions](#parallel-sessions-wt--cmux). |
 | `bin/promote-skill` | `~/.local/bin/promote-skill` | Move a skill between a repo's `.claude/skills/` and global scope. |
 | `shell/wt.sh` | sourced from `~/.zshrc` (optional) | Makes `wt here` `cd` your shell into the worktree automatically. |
@@ -108,18 +114,15 @@ curl -fsSL https://claude.ai/install.sh | bash
 
 It self-updates; do not also install the `claude-code` Homebrew cask (they conflict).
 
-## Status line + context monitor (optional)
+## Status line + context monitor
 
 The status line and context-usage monitor come from the open-source
-[`stigsb/claude-context-monitor`](https://github.com/stigsb/claude-context-monitor) (Go). They
-are optional — without them Claude Code simply runs plain. `settings.json` references them at
-`$HOME/.local/bin/`. To enable:
-
-```bash
-go install github.com/stigsb/claude-context-monitor/...@latest
-ln -sf "$(go env GOPATH)/bin/claude-statusline"      "$HOME/.local/bin/claude-statusline"
-ln -sf "$(go env GOPATH)/bin/claude-context-monitor" "$HOME/.local/bin/claude-context-monitor"
-```
+[`stigsb/claude-context-monitor`](https://github.com/stigsb/claude-context-monitor) (Go), which
+`settings.json` references at `$HOME/.local/bin/`. **`install-full`** builds and symlinks these
+(`install_context_monitor`): the Brewfile provides Go, then `go install …@latest` builds
+`claude-statusline` and `claude-context-monitor`, which are linked into `~/.local/bin/`.
+Re-running `install-full` rebuilds at `@latest`; if Go is missing the step is skipped with a
+warning. The lean `install.sh` does **not** build these — run `install-full` to enable them.
 
 ## Secrets
 
@@ -127,6 +130,11 @@ Never commit secrets. This repo ignores `.env*`, `*.pem`, `*.key` and runs a `gi
 pre-commit hook (`core.hooksPath hooks`). For values the config must reference, use a
 1Password (`op://…`) or `sops` reference — never a plaintext value. The global `settings.json`
 also **denies Claude from reading** `.env*`, key files, and `~/.ssh/**` in any repo.
+
+The tracked `shell/zshrc` is generic. Personal/machine-specific values (git identities,
+secrets, host-only tweaks) go in `~/.zshrc.local` — an **untracked** file the zshrc sources
+near the bottom (so it can override anything above). This keeps the same config working across
+machines and forks without leaking names/emails into version control.
 
 ## Design
 
