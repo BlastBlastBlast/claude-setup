@@ -60,9 +60,11 @@ _make_worktree() {
 # True only when running inside cmux with the CLI available.
 _in_cmux() { [ -n "${CMUX_SOCKET_PATH:-}" ] && command -v cmux >/dev/null 2>&1; }
 
-# Human label for a cmux workspace tab: "<repo>/<branch>" so the tab shows which
-# repo + worktree it belongs to. Args: <repo-root> <branch>.
-_workspace_label() { printf '%s/%s' "$(basename "$1")" "$2"; }
+# Human label for a cmux workspace tab: "<icon> <repo>/<branch>" so the tab shows
+# at a glance that it's a worktree + which repo + branch. The icon is the literal
+# Nerd Font glyph U+F0645 (nf-md-tree); embedded literally because macOS bash 3.2
+# printf has no \u/\U escape. Args: <repo-root> <branch>.
+_workspace_label() { printf '󰙅 %s/%s' "$(basename "$1")" "$2"; }
 
 # Open a cmux workspace running claude in <path>, labeled <name>; print a manual
 # hint otherwise. Args: <path> [name].
