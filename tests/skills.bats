@@ -48,6 +48,26 @@ _assert_valid_skill() {
   _assert_valid_skill "$SKILLS_DIR/lang-js/SKILL.md"
 }
 
+@test "lang-go skill has valid frontmatter and a routing description" {
+  _assert_valid_skill "$SKILLS_DIR/lang-go/SKILL.md"
+}
+
+@test "lang-kotlin skill has valid frontmatter and a routing description" {
+  _assert_valid_skill "$SKILLS_DIR/lang-kotlin/SKILL.md"
+}
+
+@test "lang-typescript skill has valid frontmatter and a routing description" {
+  _assert_valid_skill "$SKILLS_DIR/lang-typescript/SKILL.md"
+}
+
+@test "lang-rust skill has valid frontmatter and a routing description" {
+  _assert_valid_skill "$SKILLS_DIR/lang-rust/SKILL.md"
+}
+
+@test "lang-java skill has valid frontmatter and a routing description" {
+  _assert_valid_skill "$SKILLS_DIR/lang-java/SKILL.md"
+}
+
 @test "_assert_valid_skill rejects a SKILL.md whose frontmatter is not closed" {
   local d="${BATS_TEST_TMPDIR}/unclosed"
   mkdir -p "$d"
