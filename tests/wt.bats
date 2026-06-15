@@ -119,3 +119,9 @@ setup() { load_wt; }
   [ -d "$path" ]
   git -C "$repo" show-ref --verify --quiet refs/heads/existing-branch
 }
+
+@test "_workspace_label is <repo-basename>/<branch>" {
+  run _workspace_label "/Users/me/dev/trusthere" "feature/maptiler"
+  [ "$status" -eq 0 ]
+  [ "$output" = "trusthere/feature/maptiler" ]
+}
