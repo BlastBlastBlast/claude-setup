@@ -49,6 +49,8 @@ brew "git-lfs"
 brew "openjdk"
 # Open-source build automation tool based on the Groovy and Kotlin DSL
 brew "gradle"
+# Open source programming language to build simple/reliable/efficient software
+brew "go"
 # World's fastest and most advanced password recovery utility
 brew "hashcat"
 # User-friendly cURL replacement (command-line HTTP client)
@@ -143,6 +145,8 @@ cask "1password-cli"
 cask "android-platform-tools"
 # Open source IDE for exploring and testing APIs
 cask "bruno"
+# Ghostty-based terminal with vertical tabs and notifications for AI coding agents
+cask "cmux"
 # Universal database tool and SQL client
 cask "dbeaver-community"
 # App to build, share, and run containerized applications
