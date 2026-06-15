@@ -4,6 +4,28 @@ Global Claude Code + cmux configuration and automation. The canonical source of 
 `~/.claude/`, `~/.config/cmux/`, and personal `bin/` tools — symlinked into place and
 provisioned via Homebrew, so a fresh machine matches this repo with one command.
 
+## Why this exists
+
+Out of the box, Claude Code is capable but unopinionated — it infers conventions per session,
+and quality drifts with them. This repo encodes a senior engineer's defaults **once, globally**,
+so every session in every repo starts with the same discipline, tooling, and guardrails instead
+of relying on you to request (and re-request) them each time.
+
+| | Vanilla Claude Code | With this setup |
+|---|---|---|
+| **Coding standards** | Infers patterns from training data | Researches current best practice and **cites** it; language skills bias generation toward expert-grade, idiomatic code |
+| **Claims of "done"** | May assert success unverified | Must show the command + output as evidence before claiming done |
+| **Reuse** | May reimplement existing logic inline | Finds and extends the canonical helper first |
+| **Workflow** | Ad-hoc edits | Brainstorm → spec → plan → TDD → review, via the `superpowers` skills |
+| **Git & commits** | Inconsistent | Branch from `main`, conventional commits, rebase-not-merge, merge-commit PRs |
+| **Parallel work** | One session; branches collide | Many isolated `wt` worktree + cmux sessions running side by side |
+| **Safety** | Reads anything; no secret guard | Denies reading `.env`/keys/`~/.ssh`; `gitleaks` pre-commit; least-privilege command allowlist |
+| **Reproducibility** | Drifts per machine | One repo, one `./install.sh`, symlinked into `~/.claude` everywhere |
+
+The net effect: less babysitting and second-guessing. Claude defaults to the practices you'd
+otherwise have to spell out every session — `claude/CLAUDE.md` carries the universal principles,
+the skills make them executable, and the tooling (`wt`, hooks, permissions) enforces the rest.
+
 ## Install (fresh machine)
 
 ```bash
