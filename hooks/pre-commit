@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# Block commits that contain secrets. Requires gitleaks (brew install gitleaks).
+set -euo pipefail
+
+if ! command -v gitleaks >/dev/null 2>&1; then
+  echo "pre-commit: gitleaks not installed — skipping secret scan (brew install gitleaks)" >&2
+  exit 0
+fi
+
+if ! gitleaks git --staged --no-banner --redact; then
+  echo "pre-commit: gitleaks found a potential secret — commit blocked." >&2
+  echo "Remove the secret or use a 1Password/sops reference. To override (rarely): git commit --no-verify" >&2
+  exit 1
+fi

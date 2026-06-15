@@ -1,0 +1,115 @@
+#!/usr/bin/env bash
+# promote-skill — move skills between repo (.claude/skills) and global (~/.claude/skills).
+#
+#   promote-skill up   [--force] [--dry-run] <name>   repo skill  -> global
+#   promote-skill down [--force] [--dry-run] <name>   global skill -> current repo
+#
+# "global" defaults to ~/.claude/skills but is overridable via GLOBAL_SKILLS_DIR (tests).
+
+# Resolve the global skills dir (canonical install location).
+_global_dir() { printf '%s' "${GLOBAL_SKILLS_DIR:-$HOME/.claude/skills}"; }
+
+# Repo skills dir = <repo-root>/.claude/skills for the cwd's repo.
+_repo_skills_dir() {
+  local root
+  root="$(git rev-parse --show-toplevel 2>/dev/null)" || { echo "promote-skill: not in a git repo" >&2; return 1; }
+  # Claude Code's standard PROJECT skills dir (works in any repo). Note: this is the
+  # dotted .claude/skills, NOT this repo's own claude/skills source dir.
+  printf '%s/.claude/skills' "$root"
+}
+
+# A well-formed skill dir contains SKILL.md.
+_is_skill() { [ -f "$1/SKILL.md" ]; }
+
+# Copy skill <name> from <src-skills-dir> to <dst-skills-dir>, honoring force/dry-run.
+_copy_skill() {
+  local name="$1" src_root="$2" dst_root="$3" force="$4" dry="$5"
+  local src="$src_root/$name" dst="$dst_root/$name"
+  if [ -z "$name" ] || [[ "$name" == */* ]]; then
+    echo "promote-skill: invalid skill name '$name'" >&2; return 1
+  fi
+  if [ ! -d "$src" ]; then echo "promote-skill: source skill '$name' not found at $src" >&2; return 1; fi
+  if ! _is_skill "$src"; then echo "promote-skill: '$src' is not a skill (no SKILL.md)" >&2; return 1; fi
+  if [ -e "$dst" ]; then
+    local src_real dst_real
+    src_real="$(cd "$src" && pwd -P)"
+    dst_real="$(cd "$dst" && pwd -P)"
+    if [ "$src_real" = "$dst_real" ]; then
+      echo "promote-skill: source and target resolve to the same path ($src_real) — nothing to do" >&2
+      return 1
+    fi
+  fi
+  if [ -e "$dst" ] && [ "$force" != "1" ]; then
+    echo "promote-skill: target '$dst' exists — pass --force to overwrite" >&2; return 1
+  fi
+  if [ "$dry" = "1" ]; then echo "DRY-RUN: would copy $src -> $dst"; return 0; fi
+  mkdir -p "$dst_root"
+  rm -rf "$dst"
+  cp -R "$src" "$dst"
+  echo "promote-skill: copied skill '$name' -> $dst"
+}
+
+# Parse [--force] [--dry-run] <name> from a flag-prefixed arg list.
+# Sets globals: PS_FORCE, PS_DRY, PS_NAME.
+_parse_args() {
+  PS_FORCE=0; PS_DRY=0; PS_NAME=""
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --force) PS_FORCE=1 ;;
+      --dry-run) PS_DRY=1 ;;
+      -*) echo "promote-skill: unknown flag '$1'" >&2; return 1 ;;
+      *) [ -z "$PS_NAME" ] || { echo "promote-skill: unexpected argument '$1'" >&2; return 1; }
+         PS_NAME="$1" ;;
+    esac
+    shift
+  done
+  [ -n "$PS_NAME" ] || { echo "promote-skill: missing <name>" >&2; return 1; }
+}
+
+cmd_up() {
+  _parse_args "$@" || return 1
+  local repo_skills; repo_skills="$(_repo_skills_dir)" || return 1
+  _copy_skill "$PS_NAME" "$repo_skills" "$(_global_dir)" "$PS_FORCE" "$PS_DRY"
+}
+
+cmd_down() {
+  _parse_args "$@" || return 1
+  local repo_skills; repo_skills="$(_repo_skills_dir)" || return 1
+  _copy_skill "$PS_NAME" "$(_global_dir)" "$repo_skills" "$PS_FORCE" "$PS_DRY" || return 1
+  if [ "$PS_DRY" != "1" ]; then
+    echo "promote-skill: note — a global skill OVERRIDES a same-named project skill." >&2
+    echo "  To make this repo copy authoritative, rename it or disable the global via" >&2
+    echo "  \"skillOverrides\" in .claude/settings.local.json." >&2
+  fi
+}
+
+usage() {
+  cat <<'EOF'
+promote-skill — move skills between a repo and the global skills dir
+
+  promote-skill up <name>     graduate repo skill -> global
+  promote-skill down <name>   seed repo skill from global
+
+Options:
+  --force     overwrite an existing target
+  --dry-run   report the action without copying
+
+Notes:
+  * "global" = ~/.claude/skills (override with GLOBAL_SKILLS_DIR).
+  * A global skill overrides a same-named project skill; see "down" output.
+EOF
+}
+
+main() {
+  set -euo pipefail
+  local cmd="${1:-}"
+  shift || true
+  case "$cmd" in
+    up)   [ $# -ge 1 ] || { usage; return 1; }; cmd_up "$@" ;;
+    down) [ $# -ge 1 ] || { usage; return 1; }; cmd_down "$@" ;;
+    ""|-h|--help|help) usage ;;
+    *)    echo "promote-skill: unknown command '$cmd'" >&2; usage; return 1 ;;
+  esac
+}
+
+if [ "${BASH_SOURCE[0]}" = "${0}" ]; then main "$@"; fi

@@ -1,0 +1,148 @@
+#!/usr/bin/env bash
+# wt — git worktree + cmux workspace lifecycle for parallel Claude Code sessions.
+
+WORKTREES_DIR=".worktrees"
+
+_repo_root() { git rev-parse --show-toplevel 2>/dev/null; }
+
+# feature/foo -> feature-foo (safe directory name)
+_sanitize() { printf '%s' "$1" | tr '/' '-'; }
+
+_ensure_gitignore() {
+  local root="$1" gi
+  gi="$root/.gitignore"
+  if ! { [ -f "$gi" ] && grep -qxF "$WORKTREES_DIR/" "$gi"; }; then
+    printf '%s/\n' "$WORKTREES_DIR" >> "$gi"
+  fi
+}
+
+# Base ref for new worktree branches: prefer main, fall back to current HEAD.
+_default_base() {
+  local root="$1"
+  if git -C "$root" show-ref --verify --quiet refs/heads/main; then
+    printf 'main'
+  else
+    printf 'HEAD'
+  fi
+}
+
+# Auto name for a "decide later" worktree branch. Always a real branch (never
+# detached) so commits are never lost; rename later with `git branch -m <name>`.
+_auto_branch() { printf 'wt/scratch-%s-%s' "$(date +%Y%m%d-%H%M%S)" "$$"; }
+
+# Resolve the branch name for a worktree: use <branch> if given, else auto-name.
+# Callers compute this first (it's needed for cmux labeling) and pass the result
+# into _make_worktree, since _make_worktree runs in a command-substitution
+# subshell and cannot export a value back to its caller.
+_resolve_branch() {
+  local branch="$1"
+  [ -n "$branch" ] && { printf '%s' "$branch"; return; }
+  _auto_branch
+}
+
+# Create (or reuse) a worktree for <branch> under .worktrees/. The branch name
+# must already be resolved (non-empty) by the caller via _resolve_branch.
+# Echoes the worktree dir path on stdout. New branches are based off
+# _default_base (main, else HEAD).
+_make_worktree() {
+  local root="$1" branch="$2" dir base
+  dir="$root/$WORKTREES_DIR/$(_sanitize "$branch")"
+  _ensure_gitignore "$root"
+  if git -C "$root" show-ref --verify --quiet "refs/heads/$branch"; then
+    git -C "$root" worktree add "$dir" "$branch" >&2
+  else
+    base="$(_default_base "$root")"
+    git -C "$root" worktree add "$dir" -b "$branch" "$base" >&2
+  fi
+  printf '%s' "$dir"
+}
+
+# True only when running inside cmux with the CLI available.
+_in_cmux() { [ -n "${CMUX_SOCKET_PATH:-}" ] && command -v cmux >/dev/null 2>&1; }
+
+# Open a cmux workspace running claude in <path>; print a manual hint otherwise.
+_cmux_open() {
+  local path="$1"
+  if _in_cmux; then
+    cmux new-workspace --cwd "$path" --command "claude"
+  else
+    echo "wt: not inside cmux — open a session manually:" >&2
+    echo "  cd \"$path\" && claude" >&2
+  fi
+}
+
+cmd_ls() {
+  local root
+  root="$(_repo_root)" || { echo "wt: not in a git repo" >&2; return 1; }
+  git -C "$root" worktree list
+}
+
+cmd_rm() {
+  local branch="$1" root dir
+  root="$(_repo_root)" || { echo "wt: not in a git repo" >&2; return 1; }
+  dir="$root/$WORKTREES_DIR/$(_sanitize "$branch")"
+  git -C "$root" worktree remove "$dir"
+  if ! git -C "$root" branch -d "$branch" 2>/dev/null; then
+    echo "wt: branch '$branch' not deleted (unmerged?) — use 'git branch -D $branch' to force" >&2
+  fi
+}
+
+cmd_new() {
+  local arg="${1:-}" root branch dir
+  root="$(_repo_root)" || { echo "wt: not in a git repo" >&2; return 1; }
+  branch="$(_resolve_branch "$arg")"
+  dir="$(_make_worktree "$root" "$branch")"
+  _cmux_open "$dir"
+  # All wt informational output goes to stderr; only `wt here` emits the worktree
+  # path on stdout (its cd-"$(...)" contract). `wt new` opens a new tab, so its
+  # stdout has no contract.
+  echo "worktree: $dir" >&2
+}
+
+cmd_here() {
+  local arg="${1:-}" root branch dir
+  root="$(_repo_root)" || { echo "wt: not in a git repo" >&2; return 1; }
+  branch="$(_resolve_branch "$arg")"
+  dir="$(_make_worktree "$root" "$branch")"
+  # Label the current cmux tab (best-effort; skipped outside cmux).
+  if _in_cmux; then
+    cmux rename-workspace "$branch" >/dev/null 2>&1 || true
+  fi
+  echo "wt: cd into your isolated worktree with:  cd \"\$(wt here${arg:+ $arg})\"" >&2
+  echo "wt: branch '$branch' (rename later: git branch -m <name>)" >&2
+  # ONLY the path on stdout, so `cd \"$(wt here)\"` works.
+  printf '%s\n' "$dir"
+}
+
+usage() {
+  cat <<'EOF'
+wt — git worktree + cmux session lifecycle (isolate parallel Claude sessions)
+
+  wt here [name]    create an isolated worktree off main and cd THIS tab into it:
+                      cd "$(wt here)"      # auto-named scratch branch, decide later
+                      cd "$(wt here docs)" # branch named 'docs'
+  wt new [name]     create an isolated worktree and open it in a NEW cmux tab + claude
+  wt ls             list worktrees
+  wt rm <branch>    remove the worktree and delete the branch
+
+Worktrees are always on a real branch (never detached, so work is never lost).
+Omit [name] to get an auto branch (wt/scratch-<timestamp>-<pid>); rename later with
+`git branch -m <name>`.
+EOF
+}
+
+main() {
+  set -euo pipefail
+  local cmd="${1:-}"
+  shift || true
+  case "$cmd" in
+    here) cmd_here "${1:-}" ;;
+    new) cmd_new "${1:-}" ;;
+    ls)  cmd_ls ;;
+    rm)  [ $# -ge 1 ] || { usage; return 1; }; cmd_rm "$1" ;;
+    ""|-h|--help|help) usage ;;
+    *)   echo "wt: unknown command '$cmd'" >&2; usage; return 1 ;;
+  esac
+}
+
+if [ "${BASH_SOURCE[0]}" = "${0}" ]; then main "$@"; fi
