@@ -1,0 +1,108 @@
+# Enable Powerlevel10k instant prompt. Must stay at the top.
+if [[ -r "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh" ]]; then
+  source "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh"
+fi
+
+# ~/.zshrc — Lars terminal setup 2026
+# Stack: Sheldon → Powerlevel10k → Atuin → Zoxide → mise → fzf-tab
+
+# ── PATH ─────────────────────────────────────────────────────────────────────
+export PATH="$HOME/.local/bin:$PATH"
+
+# ── Homebrew ─────────────────────────────────────────────────────────────────
+eval "$(/opt/homebrew/bin/brew shellenv)"
+
+# ── Java ─────────────────────────────────────────────────────────────────────
+export JAVA_HOME="$(brew --prefix openjdk)/libexec/openjdk.jdk/Contents/Home"
+
+# ── Sheldon (plugin manager) ──────────────────────────────────────────────────
+eval "$(sheldon source)"
+
+# ── Powerlevel10k prompt ──────────────────────────────────────────────────────
+source /opt/homebrew/share/powerlevel10k/powerlevel10k.zsh-theme
+
+# ── Atuin (history — replaces HISTFILE entirely) ──────────────────────────────
+eval "$(atuin init zsh)"
+
+# ── mise (version manager: node, python, ruby, etc.) ─────────────────────────
+eval "$(mise activate zsh)"
+
+# ── fzf shell integration ─────────────────────────────────────────────────────
+source <(fzf --zsh)
+
+# ── fzf-tab config (set AFTER sheldon loads it) ───────────────────────────────
+zstyle ':fzf-tab:complete:*' fzf-preview 'bat --color=always --plain "$realpath" 2>/dev/null || ls --color=always "$realpath"'
+zstyle ':fzf-tab:complete:cd:*' fzf-preview 'eza --tree --icons --level=2 "$realpath"'
+zstyle ':fzf-tab:*' switch-group '<' '>'
+
+# ── Autosuggestion style ──────────────────────────────────────────────────────
+ZSH_AUTOSUGGEST_STRATEGY=(history completion)
+ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE='fg=#666666'
+
+# ── Yazi wrapper — cd on quit ────────────────────────────────────────────────
+function y() {
+    local tmp="$(mktemp -t "yazi-cwd")" cwd
+    yazi "$@" --cwd-file="$tmp"
+    if cwd="$(cat -- "$tmp")" && [ -n "$cwd" ] && [ "$cwd" != "$PWD" ]; then
+        builtin cd -- "$cwd"
+    fi
+    rm -f -- "$tmp"
+}
+
+# ── wt — git worktree + cmux session manager ─────────────────────────────────
+wt() {
+  if [ "${1:-}" = "here" ]; then
+    local _wt_dir
+    _wt_dir="$(command wt "$@")" || return $?
+    [ -n "$_wt_dir" ] && builtin cd "$_wt_dir"
+  else
+    command wt "$@"
+  fi
+}
+
+# ── Aliases ───────────────────────────────────────────────────────────────────
+alias ls='eza --icons=always'
+alias ll='eza -la --icons=always --git --group-directories-first'
+alias lt='eza --tree --icons=always --level=2'
+alias la='eza -a --icons=always'
+alias cat='bat'
+alias f='y'
+alias lg='lazygit'
+alias tf='tofu'
+alias ..='cd ..'
+alias ...='cd ../..'
+alias grep='grep --color=auto'
+
+# ── Git helpers ───────────────────────────────────────────────────────────────
+gac() { git add . && git commit -m "$*"; }
+alias setuniversity='git config --global user.name "larswt" && git config --global user.email "larswt@ifi.uio.no"'
+alias setpersonal='git config --global user.name "BlastBlastBlast" && git config --global user.email "lw.tynes@gmail.com"'
+
+# ── Editor ────────────────────────────────────────────────────────────────────
+export EDITOR="micro"
+export VISUAL="micro"
+
+# ── navi (command cheatsheet — Ctrl+G) ───────────────────────────────────────
+eval "$(navi widget zsh)"
+
+# ── Keybindings ───────────────────────────────────────────────────────────────
+bindkey '^[[A' history-search-backward
+bindkey '^[[B' history-search-forward
+bindkey '^[f' forward-word
+bindkey '^[b' backward-word
+
+# ── Zsh options ───────────────────────────────────────────────────────────────
+setopt AUTO_CD
+setopt CORRECT
+setopt EXTENDED_GLOB
+setopt NO_CASE_GLOB
+setopt GLOB_DOTS
+setopt SHARE_HISTORY
+setopt HIST_IGNORE_DUPS
+setopt HIST_IGNORE_SPACE
+
+# To customize prompt, run `p10k configure` or edit ~/.p10k.zsh.
+[[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
+
+# ── Zoxide init — MUST be last (replaces cd; nothing redefines cd after this) ─
+eval "$(zoxide init zsh --cmd cd)"
