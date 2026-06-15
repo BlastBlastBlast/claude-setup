@@ -13,7 +13,34 @@ _ensure_gitignore() {
   gi="$root/.gitignore"
   if ! { [ -f "$gi" ] && grep -qxF "$WORKTREES_DIR/" "$gi"; }; then
     printf '%s/\n' "$WORKTREES_DIR" >> "$gi"
+    echo "wt: added '$WORKTREES_DIR/' to .gitignore — commit it" >&2
   fi
+}
+
+# Symlink configured untracked dev files (default .env) from the main checkout into a new
+# worktree, so a session sees a 1-1 working copy. Only links GITIGNORED files (so they can
+# never be committed from the worktree); warns and skips anything not ignored. Repo-root
+# files only. All output to stderr. Args: <repo-root> <worktree-dir>.
+_link_untracked() {
+  local root="$1" dir="$2" name
+  # WT_LINK_FILES is a SPACE-separated list of repo-root filenames (default: .env).
+  # Unquoted on purpose to word-split on spaces; relies on the default IFS.
+  for name in ${WT_LINK_FILES:-.env}; do
+    case "$name" in */*) echo "wt: skip '$name' — only repo-root files are linked" >&2; continue ;; esac
+    [ -f "$root/$name" ] || continue        # nothing to link
+    [ -e "$dir/$name" ] && continue          # never overwrite (e.g. a tracked file)
+    if git -C "$root" check-ignore -q "$name"; then
+      # ../../ : a worktree is always exactly two levels below root
+      #          (<root>/.worktrees/<branch>; _sanitize strips any '/' from the branch).
+      if ln -s "../../$name" "$dir/$name" 2>/dev/null; then
+        echo "wt: linked $name from main checkout" >&2
+      else
+        echo "wt: WARNING — could not link $name" >&2
+      fi
+    else
+      echo "wt: WARNING — $name exists but is not gitignored; not linking (add it to .gitignore first)" >&2
+    fi
+  done
 }
 
 # Base ref for new worktree branches: prefer main, fall back to current HEAD.
@@ -54,6 +81,7 @@ _make_worktree() {
     base="$(_default_base "$root")"
     git -C "$root" worktree add "$dir" -b "$branch" "$base" >&2
   fi
+  _link_untracked "$root" "$dir"
   printf '%s' "$dir"
 }
 
