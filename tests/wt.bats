@@ -120,8 +120,11 @@ setup() { load_wt; }
   git -C "$repo" show-ref --verify --quiet refs/heads/existing-branch
 }
 
-@test "_workspace_label is <repo-basename>/<branch>" {
+@test "_workspace_label is '<icon> <repo-basename>/<branch>'" {
   run _workspace_label "/Users/me/dev/trusthere" "feature/maptiler"
   [ "$status" -eq 0 ]
-  [ "$output" = "trusthere/feature/maptiler" ]
+  # Suffix is "<repo>/<branch>"; an icon prefix precedes it (asserted without
+  # embedding the glyph here, so the test doesn't depend on its encoding).
+  [[ "$output" == *"trusthere/feature/maptiler" ]]
+  [ "$output" != "trusthere/feature/maptiler" ]
 }
