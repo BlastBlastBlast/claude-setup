@@ -64,6 +64,8 @@ setup() {
   [ "$(readlink "$HOME/.local/bin/wt")" = "${REPO_ROOT}/bin/wt" ]
   [ "$(readlink "$HOME/.local/bin/promote-skill")" = "${REPO_ROOT}/bin/promote-skill" ]
   [ "$(readlink "$HOME/.local/bin/claude-guard-destructive")" = "${REPO_ROOT}/bin/claude-guard-destructive" ]
+  [ "$(readlink "$HOME/.zshrc")" = "${REPO_ROOT}/shell/zshrc" ]
+  [ "$(readlink "$HOME/.config/sheldon/plugins.toml")" = "${REPO_ROOT}/shell/sheldon/plugins.toml" ]
 }
 
 @test "_set_hooks_path points a repo's git hooks at the tracked hooks/ dir" {
@@ -80,4 +82,18 @@ setup() {
   run git -C "$tmprepo" config --local core.hooksPath
   [ "$status" -eq 0 ]
   [ "$output" = "hooks" ]
+}
+
+@test "install.sh creates ~/.zshrc symlink pointing into repo" {
+  run test -L "$HOME/.zshrc"
+  [ "$status" -eq 0 ]
+  run readlink "$HOME/.zshrc"
+  [[ "$output" == *"shell/zshrc" ]]
+}
+
+@test "install.sh creates sheldon plugins.toml symlink pointing into repo" {
+  run test -L "$HOME/.config/sheldon/plugins.toml"
+  [ "$status" -eq 0 ]
+  run readlink "$HOME/.config/sheldon/plugins.toml"
+  [[ "$output" == *"shell/sheldon/plugins.toml" ]]
 }
