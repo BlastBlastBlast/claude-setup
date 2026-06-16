@@ -37,7 +37,9 @@
   subagents so the main context stays clean.
 
 ## Commits
-Never add `Co-Authored-By` lines to commit messages.
+No AI attribution anywhere — the developer is responsible for whatever ends up in the repo.
+Never add `Co-Authored-By` lines, "Generated with Claude Code" footers, or any other Claude/AI
+mention to commit messages or PR descriptions.
 
 Use conventional commit format: `feat:`, `fix:`, `refactor:`, `chore:`, `docs:`.
 Multi-line bodies when the change needs explanation — blank line, then bullet points for what changed and why.
@@ -68,8 +70,13 @@ Multi-line bodies when the change needs explanation — blank line, then bullet 
 
 ## Language conventions
 Per-language conventions live in on-demand skills (loaded only when relevant), not in this file:
-- Python → `lang-python` skill
+- Go → `lang-go` skill
+- Java → `lang-java` skill
 - JavaScript → `lang-js` skill
+- Kotlin → `lang-kotlin` skill
+- Python → `lang-python` skill
+- Rust → `lang-rust` skill
+- TypeScript → `lang-typescript` skill
 
 Repo-local `AGENTS.md` / `CLAUDE.md` conventions take precedence over these skills. Author new
 language skills with the `research-to-skill` skill (authoritative sources + a `Sources` block).
