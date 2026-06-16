@@ -31,6 +31,13 @@
 - **Tooling:** install/update via Homebrew (declared in a Brewfile); no manual downloads
   unless no formula/cask exists.
 
+## Review handoffs
+- **Hand reviews to Crit.** When you'd ask the user to eyeball something themselves — a code
+  diff, a plan/doc, or rendered UI/design — offer to open it in [Crit](https://crit.md/) instead
+  of pointing them at a file: `crit` for the working diff, `crit <file>` for a plan/doc, Crit's
+  live-app / static-HTML mode for UI/design review. Only when `crit` is on `PATH`; it's an offer,
+  not a gate; skip trivial one-liners.
+
 ## Session & context hygiene
 - Context is the constraint; performance degrades as it fills. Hand off around ~50%
   context. Use `/clear` between unrelated tasks. Delegate read-heavy investigation to
