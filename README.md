@@ -19,7 +19,7 @@ of relying on you to request (and re-request) them each time.
 | **Workflow** | Ad-hoc edits | Brainstorm → spec → plan → TDD → review, via the `superpowers` skills |
 | **Git & commits** | Inconsistent | Branch from `main`, conventional commits, rebase-not-merge, merge-commit PRs |
 | **Parallel work** | One session; branches collide | Many isolated `wt` worktree + cmux sessions running side by side |
-| **Safety** | Reads anything; no secret guard | Denies reading `.env`/keys/`~/.ssh`; `gitleaks` pre-commit; least-privilege command allowlist |
+| **Safety** | Reads anything; no secret guard | Denies reading `.env`/keys/`~/.ssh`; blocks destructive Bash (`rm -rf`, `sudo`, force-push) via a `PreToolUse` guard; `gitleaks` pre-commit; least-privilege command allowlist |
 | **Reproducibility** | Drifts per machine | One repo, one `./install.sh`, symlinked into `~/.claude` everywhere |
 
 The net effect: less babysitting and second-guessing. Claude defaults to the practices you'd
@@ -51,7 +51,10 @@ you open with Claude Code (each repo can still layer its own `CLAUDE.md`/`AGENTS
 | `cmux/cmux.json` | `~/.config/cmux/cmux.json` | cmux config + the **"Claude session"** workspace layout (claude pane + shell pane). |
 | `bin/wt` | `~/.local/bin/wt` | git worktree + cmux session lifecycle — see [Parallel sessions](#parallel-sessions-wt--cmux). |
 | `bin/promote-skill` | `~/.local/bin/promote-skill` | Move a skill between a repo's `.claude/skills/` and global scope. |
-| `shell/wt.sh` | sourced from `~/.zshrc` (optional) | Makes `wt here` `cd` your shell into the worktree automatically. |
+| `bin/claude-guard-destructive` | `~/.local/bin/claude-guard-destructive` | `PreToolUse` hook that blocks destructive Bash commands (`rm -rf`, `sudo`, force-push) before they run. |
+| `shell/zshrc` | `~/.zshrc` | Managed zsh config — prompt, history (`atuin`), and tooling; sources `shell/wt.sh`. |
+| `shell/sheldon/plugins.toml` | `~/.config/sheldon/plugins.toml` | `sheldon` zsh plugin declarations. |
+| `shell/wt.sh` | sourced from `~/.zshrc` | Makes `wt here` `cd` your shell into the worktree automatically. |
 | `hooks/pre-commit` | `core.hooksPath=hooks` | `gitleaks` secret scan before every commit (this repo only). |
 
 ## Skills
@@ -70,6 +73,28 @@ idioms · Reuse & helpers · Architecture · Anti-patterns · Sources), and cite
   `writing-skills`.
 - **`bin/promote-skill`** — graduate a repo-local skill to global (`up`) or seed a repo-local
   one from a global skill (`down`); `--dry-run`/`--force`, validates the target first.
+
+## Plugins
+
+Plugins are enabled in `claude/settings.json` and apply in every repo. We keep the public set
+**official-only** (from `anthropics/claude-plugins-official`) — installing a plugin runs its code
+and hooks, so it is a code-trust decision; native config + `CLAUDE.md` conventions are preferred
+over third-party plugins. A bats test enforces that the public `settings.json` enables only
+official-marketplace plugins.
+
+Enabled (official):
+
+- **`superpowers`** — the brainstorm → spec → plan → TDD → review skill workflow.
+- **`feature-dev`** — guided feature development with codebase exploration agents.
+- **`code-review`** — PR-style review of a diff.
+- **`security-guidance`** — security review of pending changes.
+- **`code-simplifier`** — reuse/simplify/efficiency cleanups.
+- **`skill-creator`** — author, evaluate, and benchmark skills (incl. description optimization + variance analysis).
+- **`session-report`** — end-of-session summaries.
+- **`pyright-lsp`** / **`typescript-lsp`** — language-server diagnostics for Python / TypeScript.
+
+📖 Rationale, trust notes, and surface tags for every plugin (official vs community):
+[`docs/plugins.md`](docs/plugins.md).
 
 ## Parallel sessions (`wt` + cmux)
 
@@ -108,6 +133,14 @@ curl -fsSL https://claude.ai/install.sh | bash
 
 It self-updates; do not also install the `claude-code` Homebrew cask (they conflict).
 
+## Review handoffs (crit)
+
+[`crit`](https://crit.md/) (installed via the `Brewfile`) gives a local PR-style review loop for
+agent output. Per a `claude/CLAUDE.md` convention, when Claude would ask you to eyeball a diff,
+plan/doc, or rendered UI, it offers to open it in Crit instead — `crit` for the working diff,
+`crit <file>` for a doc, live-app/static-HTML mode for UI. It is an offer, not a gate, and only when
+`crit` is on `PATH`.
+
 ## Status line + context monitor (optional)
 
 The status line and context-usage monitor come from the open-source
@@ -126,7 +159,9 @@ ln -sf "$(go env GOPATH)/bin/claude-context-monitor" "$HOME/.local/bin/claude-co
 Never commit secrets. This repo ignores `.env*`, `*.pem`, `*.key` and runs a `gitleaks`
 pre-commit hook (`core.hooksPath hooks`). For values the config must reference, use a
 1Password (`op://…`) or `sops` reference — never a plaintext value. The global `settings.json`
-also **denies Claude from reading** `.env*`, key files, and `~/.ssh/**` in any repo.
+also **denies Claude from reading** `.env*`, key files, and `~/.ssh/**` in any repo, and a
+`PreToolUse` guard (`bin/claude-guard-destructive`) blocks destructive Bash commands (`rm -rf`,
+`sudo`, `git push --force`) before they run.
 
 ## Design
 
