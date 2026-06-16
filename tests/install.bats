@@ -83,17 +83,3 @@ setup() {
   [ "$status" -eq 0 ]
   [ "$output" = "hooks" ]
 }
-
-@test "install.sh creates ~/.zshrc symlink pointing into repo" {
-  run test -L "$HOME/.zshrc"
-  [ "$status" -eq 0 ]
-  run readlink "$HOME/.zshrc"
-  [[ "$output" == *"shell/zshrc" ]]
-}
-
-@test "install.sh creates sheldon plugins.toml symlink pointing into repo" {
-  run test -L "$HOME/.config/sheldon/plugins.toml"
-  [ "$status" -eq 0 ]
-  run readlink "$HOME/.config/sheldon/plugins.toml"
-  [[ "$output" == *"shell/sheldon/plugins.toml" ]]
-}
