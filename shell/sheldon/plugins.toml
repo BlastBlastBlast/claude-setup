@@ -1,10 +1,13 @@
 shell = "zsh"
 
+# Order matters: fzf-tab must load after compinit (run in zshrc) but BEFORE the
+# plugins that wrap ZLE widgets; zsh-syntax-highlighting must be sourced last.
+
+[plugins.fzf-tab]
+github = "Aloxaf/fzf-tab"
+
 [plugins.zsh-autosuggestions]
 github = "zsh-users/zsh-autosuggestions"
 
 [plugins.zsh-syntax-highlighting]
 github = "zsh-users/zsh-syntax-highlighting"
-
-[plugins.fzf-tab]
-github = "Aloxaf/fzf-tab"
