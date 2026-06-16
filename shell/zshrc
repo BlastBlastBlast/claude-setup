@@ -18,6 +18,11 @@ export JAVA_HOME="$(brew --prefix openjdk)/libexec/openjdk.jdk/Contents/Home"
 # ── Rust (cargo env set by rustup-init) ──────────────────────────────────────
 [[ -f "$HOME/.cargo/env" ]] && source "$HOME/.cargo/env"
 
+# ── Completion system ─────────────────────────────────────────────────────────
+# Must run BEFORE sheldon: fzf-tab and any `compdef` call need the completion
+# system initialized first, otherwise `compdef`/`_complete` are undefined.
+autoload -Uz compinit && compinit
+
 # ── Sheldon (plugin manager) ──────────────────────────────────────────────────
 eval "$(sheldon source)"
 
