@@ -25,6 +25,8 @@ brew "cloc"
 brew "cmake"
 # Apjanke's fork of the classic cowsay project
 brew "cowsay"
+# PR-style review loop for AI agent output (crit.md) — review diffs/plans/UI locally
+brew "crit"
 # Pack, ship and run any application as a lightweight container
 brew "docker"
 # Modern, maintained replacement for ls
