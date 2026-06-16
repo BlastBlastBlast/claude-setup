@@ -135,8 +135,6 @@ brew "yadm"
 brew "yarn"
 # Blazing fast terminal file manager written in Rust
 brew "yazi"
-# Shell extension to navigate your filesystem faster
-brew "zoxide"
 # Command-line interface for 1Password
 cask "1password-cli"
 # Android SDK component
