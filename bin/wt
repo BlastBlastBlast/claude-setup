@@ -116,10 +116,27 @@ cmd_ls() {
   git -C "$root" worktree list
 }
 
+# Echo the worktree path currently checked out on <branch>, or nothing if no
+# worktree has it. Parses `git worktree list --porcelain` (one record per worktree:
+# a `worktree <path>` line and, unless detached, a `branch refs/heads/<name>` line).
+# Resolving the path from git — rather than reconstructing it from the branch name —
+# is what makes `wt rm` survive a `git branch -m` rename, where the dir keeps its
+# original name. Args: <repo-root> <branch>.
+_worktree_dir_for_branch() {
+  local root="$1" branch="$2"
+  git -C "$root" worktree list --porcelain | awk -v target="refs/heads/$branch" '
+    /^worktree / { path = substr($0, 10) }
+    /^branch /   { if (substr($0, 8) == target) { print path; exit } }
+  '
+}
+
 cmd_rm() {
   local branch="$1" root dir
   root="$(_repo_root)" || { echo "wt: not in a git repo" >&2; return 1; }
-  dir="$root/$WORKTREES_DIR/$(_sanitize "$branch")"
+  # Prefer the real path git has for this branch; fall back to the conventional
+  # name (covers a worktree whose branch ref is already gone).
+  dir="$(_worktree_dir_for_branch "$root" "$branch")"
+  [ -n "$dir" ] || dir="$root/$WORKTREES_DIR/$(_sanitize "$branch")"
   git -C "$root" worktree remove "$dir"
   if ! git -C "$root" branch -d "$branch" 2>/dev/null; then
     echo "wt: branch '$branch' not deleted (unmerged?) — use 'git branch -D $branch' to force" >&2

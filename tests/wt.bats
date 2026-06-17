@@ -62,6 +62,22 @@ setup() { load_wt; }
   [ "$status" -ne 0 ]
 }
 
+@test "wt rm removes a worktree whose branch was renamed after creation" {
+  # `wt` itself recommends `git branch -m` to rename; after a rename the dir name
+  # (.worktrees/feature-foo) no longer matches the branch (feature/bar), so rm must
+  # resolve the real path from git, not reconstruct it from the branch name.
+  repo="$(make_temp_repo)"
+  cd "$repo"
+  unset CMUX_SOCKET_PATH
+  main new feature/foo
+  git -C "$repo" branch -m feature/foo feature/bar
+  run main rm feature/bar
+  [ "$status" -eq 0 ]
+  [ ! -d "$repo/.worktrees/feature-foo" ]
+  run git -C "$repo" show-ref --verify --quiet refs/heads/feature/bar
+  [ "$status" -ne 0 ]
+}
+
 @test "wt here creates an isolated worktree on an auto-named branch and prints its path" {
   repo="$(make_temp_repo)"; cd "$repo"
   unset CMUX_SOCKET_PATH
