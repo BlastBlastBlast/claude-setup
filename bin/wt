@@ -130,17 +130,42 @@ _worktree_dir_for_branch() {
   '
 }
 
+# Echo the main checkout's path — the first record in `git worktree list`, which
+# git always orders as the main working tree. Works even when run from inside a
+# linked worktree. Args: <repo-root>.
+_main_worktree() {
+  git -C "$1" worktree list --porcelain | awk '/^worktree /{print substr($0, 10); exit}'
+}
+
 cmd_rm() {
-  local branch="$1" root dir
+  local branch="$1" root main dir cd_to=""
   root="$(_repo_root)" || { echo "wt: not in a git repo" >&2; return 1; }
+  # Run every git op from the main checkout, not `root`: when the caller is inside
+  # the worktree being removed, `root` is that worktree's path and won't survive
+  # the removal, so a follow-up `git -C "$root" …` (the branch delete) would fail.
+  # The main checkout always exists, and porcelain lists it even from inside a wt.
+  main="$(_main_worktree "$root")"
   # Prefer the real path git has for this branch; fall back to the conventional
   # name (covers a worktree whose branch ref is already gone).
-  dir="$(_worktree_dir_for_branch "$root" "$branch")"
-  [ -n "$dir" ] || dir="$root/$WORKTREES_DIR/$(_sanitize "$branch")"
-  git -C "$root" worktree remove "$dir"
-  if ! git -C "$root" branch -d "$branch" 2>/dev/null; then
+  dir="$(_worktree_dir_for_branch "$main" "$branch")"
+  [ -n "$dir" ] || dir="$main/$WORKTREES_DIR/$(_sanitize "$branch")"
+  # If the caller's shell sits inside the worktree we're about to remove, deleting
+  # it would strand the shell's CWD (getcwd fails; `cd .` can't recover). `root` is
+  # the toplevel of the caller's CWD, so root == dir means we're in the worktree
+  # (or a subdir — both report the worktree as toplevel). Hand the wt() shell
+  # wrapper the main checkout to cd the caller back to after removal.
+  if [ "$root" = "$dir" ]; then cd_to="$main"; fi
+  git -C "$main" worktree remove "$dir" >&2
+  # 1>&2 keeps git's "Deleted branch …" line visible but off stdout (the cd
+  # contract channel); 2>/dev/null drops its error, which our own message replaces.
+  if ! git -C "$main" branch -d "$branch" 1>&2 2>/dev/null; then
     echo "wt: branch '$branch' not deleted (unmerged?) — use 'git branch -D $branch' to force" >&2
   fi
+  # Mirror the `wt here` contract: the ONLY thing on stdout is a cd target, emitted
+  # solely when the caller was inside the removed worktree. A bare `wt rm` from
+  # elsewhere prints nothing, so the wrapper leaves the caller's CWD untouched.
+  # (An `if` — not `[ … ] && …` — so an empty cd_to doesn't make cmd_rm return 1.)
+  if [ -n "$cd_to" ]; then printf '%s\n' "$cd_to"; fi
 }
 
 cmd_new() {
@@ -179,7 +204,8 @@ wt — git worktree + cmux session lifecycle (isolate parallel Claude sessions)
                       cd "$(wt here docs)" # branch named 'docs'
   wt new [name]     create an isolated worktree and open it in a NEW cmux tab + claude
   wt ls             list worktrees
-  wt rm <branch>    remove the worktree and delete the branch
+  wt rm <branch>    remove the worktree and delete the branch (cd's you back to the
+                      main checkout if you're inside the worktree being removed)
 
 Worktrees are always on a real branch (never detached, so work is never lost).
 Omit [name] to get an auto branch (wt/scratch-<timestamp>-<pid>); rename later with

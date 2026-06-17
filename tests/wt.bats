@@ -78,6 +78,32 @@ setup() { load_wt; }
   [ "$status" -ne 0 ]
 }
 
+@test "wt rm from inside the removed worktree prints the main checkout path on stdout" {
+  # Removing the worktree you're standing in strands the shell's CWD. bin/wt emits
+  # the main checkout on stdout so the wt() wrapper can cd the shell back there
+  # (same contract as `wt here`). Compare against the git-canonicalized root, since
+  # on macOS the temp repo lives under a /var -> /private/var symlink.
+  repo="$(make_temp_repo)"; cd "$repo"
+  unset CMUX_SOCKET_PATH
+  path="$(main here feature/foo 2>/dev/null)"
+  cd "$path"
+  out="$(main rm feature/foo 2>/dev/null)"
+  cd "$repo"   # CWD was just deleted; reattach to a real dir
+  [ "$out" = "$(git -C "$repo" rev-parse --show-toplevel)" ]
+  [ ! -d "$path" ]
+  run git -C "$repo" show-ref --verify --quiet refs/heads/feature/foo
+  [ "$status" -ne 0 ]
+}
+
+@test "wt rm from the main checkout prints nothing on stdout (no cd)" {
+  repo="$(make_temp_repo)"; cd "$repo"
+  unset CMUX_SOCKET_PATH
+  main here feature/foo >/dev/null 2>&1
+  out="$(main rm feature/foo 2>/dev/null)"
+  [ -z "$out" ]
+  [ ! -d "$repo/.worktrees/feature-foo" ]
+}
+
 @test "wt here creates an isolated worktree on an auto-named branch and prints its path" {
   repo="$(make_temp_repo)"; cd "$repo"
   unset CMUX_SOCKET_PATH
