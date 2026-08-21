@@ -64,6 +64,63 @@ _guard() {
   [ "$status" -eq 2 ]
 }
 
+@test "claude-guard-destructive blocks git push --force" {
+  _guard 'git push --force origin feature/x'
+  [ "$status" -eq 2 ]
+}
+
+@test "claude-guard-destructive blocks git push -f" {
+  _guard 'git push -f'
+  [ "$status" -eq 2 ]
+}
+
+@test "claude-guard-destructive blocks git push with combined short flags including f" {
+  _guard 'git push -uf origin feature/x'
+  [ "$status" -eq 2 ]
+}
+
+@test "claude-guard-destructive allows git push --force-with-lease" {
+  _guard 'git push --force-with-lease origin feature/x'
+  [ "$status" -eq 0 ]
+}
+
+@test "claude-guard-destructive allows a plain git push" {
+  _guard 'git push origin feature/x'
+  [ "$status" -eq 0 ]
+}
+
+@test "claude-guard-destructive allows force flags in a different command segment" {
+  _guard 'git push origin feature/x && rm -rf build/'
+  [ "$status" -eq 0 ]
+}
+
+@test "claude-guard-destructive allows a script that merely mentions git push and -rf in strings" {
+  _guard "python3 -c \"deny = ['Bash(rm -rf /*)', 'Bash(git push --force-with-lease)']; print(deny)\""
+  [ "$status" -eq 0 ]
+}
+
+@test "claude-guard-destructive blocks a commit with Co-Authored-By Claude" {
+  _guard 'git commit -m "feat: add thing
+
+Co-Authored-By: Claude <noreply@anthropic.com>"'
+  [ "$status" -eq 2 ]
+}
+
+@test "claude-guard-destructive blocks a commit with a Generated with Claude footer" {
+  _guard 'git commit -m "fix: thing" -m "🤖 Generated with [Claude Code](https://claude.com/claude-code)"'
+  [ "$status" -eq 2 ]
+}
+
+@test "claude-guard-destructive blocks a PR body with AI attribution" {
+  _guard 'gh pr create --title "feat: x" --body "Does x. Generated with Claude Code."'
+  [ "$status" -eq 2 ]
+}
+
+@test "claude-guard-destructive allows a commit that merely mentions CLAUDE.md" {
+  _guard 'git commit -m "docs: trim global CLAUDE.md for Opus 5"'
+  [ "$status" -eq 0 ]
+}
+
 @test "claude-guard-destructive allows a benign command" {
   _guard 'ls -la'
   [ "$status" -eq 0 ]
