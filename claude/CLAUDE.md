@@ -7,7 +7,6 @@
   training data. Source priority: (1) Anthropic official (`code.claude.com/docs`, the
   `claude-api` skill, the `claude-code-guide` agent), (2) Context7 for library docs,
   (3) recognized maintainers/experts, (4) community. Cite the source when setting a convention.
-- **Verify before you claim.** Never say "done / fixed / passing" without showing the
   evidence — the command and its output, test results, or a screenshot. If you can't
   verify it, don't ship it.
 - **Reuse before you create.** Before writing new code in a domain, actively find the
@@ -20,7 +19,6 @@
   records its conventions, gotchas, AND the canonical abstractions to reuse (the classes
   and helpers to call instead of reinventing) — so reuse patterns stay discoverable
   instead of getting lost.
-- **Keep complexity low.** Avoid deep nesting and nested loops — extract named functions
   instead. Choose data structures by access pattern (dict for keyed lookup, list for
   ordered iteration).
 - **Type everything.** Strong typing by default; type hints on every parameter/return in
@@ -89,9 +87,5 @@ Repo-local `AGENTS.md` / `CLAUDE.md` conventions take precedence over these skil
 language skills with the `research-to-skill` skill (authoritative sources + a `Sources` block).
 
 ## Security
-- **Least privilege:** grant the narrowest scope/permissions that work; isolate filesystem and network access so a compromise can't escalate or exfiltrate.
-- **Never hardcode secrets** — load credentials from a secret manager/env; keep them out of source and logs.
-- **Treat all external input as untrusted:** parameterize queries and shell calls (never string-build SQL/commands); avoid dynamic code execution (`eval`, `pickle`, raw `innerHTML`).
 - **Gate sensitive data and operations behind authentication/authorization** — the enforcement boundary is a per-project architectural decision; check it server-side.
-- **Defense in depth:** no single check is a guarantee; layer in-editor review, PR review, and CI scanning.
 - **Don't expose or log PII by default** — minimize and protect sensitive data.

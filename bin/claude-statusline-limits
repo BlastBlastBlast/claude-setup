@@ -1,0 +1,194 @@
+#!/usr/bin/env bash
+# Self-contained Claude Code statusline: context window + plan limits.
+#
+#   Opus 5 │ claude-setup ██░░░░░░░░ 18%
+#   1% 4h24m · 36% 8h24m · 0% Fable
+#
+# Everything is derived from the statusline JSON on stdin. No dependency on
+# stigsb/claude-context-monitor (its binary ignores the JSON's context_window
+# fields entirely — it renders from its own hook-tracked state, so its number
+# does not move when the real context does; reading used_percentage straight
+# from Claude Code is both simpler and more accurate).
+#
+# Line 2 — plan limits:
+#   - session (5h) and weekly (7d) come free from the payload, as
+#     rate_limits.five_hour / rate_limits.seven_day. Claude.ai Pro/Max only,
+#     and only once the first API response of the session has landed.
+#   - the per-model weekly bucket ("Fable") is NOT in the payload. Claude Code
+#     tracks it internally (seven_day_opus, seven_day_sonnet, and a
+#     model_scoped[] array carrying the display label) but builds the statusline
+#     object by hand-picking just the two generic windows and dropping the rest.
+#     So it comes from a cache that claude-limits-refresh fills in the
+#     background; see that script's header.
+#
+# Never blocks: every field degrades to being omitted, and the refresh is always
+# spawned detached. Worst case this prints the model and directory alone.
+set -euo pipefail
+
+REFRESH_BIN="${HOME}/.local/bin/claude-limits-refresh"
+CACHE="${HOME}/.claude/cache/model-usage.json"
+MAX_CACHE_AGE=300 # seconds; Fable moves slowly, and each refresh costs ~2s
+BAR_WIDTH=10
+
+DIM=$'\033[2m'
+RED=$'\033[31m'
+YELLOW=$'\033[33m'
+GREEN=$'\033[32m'
+OFF=$'\033[0m'
+
+input="$(cat)"
+now="$(date +%s)"
+
+# --- helpers --------------------------------------------------------------
+
+# Colour a percentage by how close it is to the ceiling. Context tolerates a
+# fuller window than a plan limit does, so the two use different thresholds.
+colour_for() {
+  awk -v p="$1" -v warn="$2" -v crit="$3" -v r="$RED" -v y="$YELLOW" -v g="$GREEN" \
+    'BEGIN { print (p >= crit ? r : (p >= warn ? y : g)) }'
+}
+
+is_number() { printf '%s' "$1" | grep -Eq '^[0-9]+(\.[0-9]+)?$'; }
+
+# A field is absent if jq mapped it to the "-" sentinel, or if the read produced
+# nothing at all (empty or non-JSON stdin, where jq emits no rows to split).
+present() { [ -n "$1" ] && [ "$1" != "-" ]; }
+
+# Compact time until reset: 4h24m, 44m, <1m.
+remaining() {
+  local secs=$(( $1 - now ))
+  [ "$secs" -le 0 ] && { printf 'now'; return; }
+  if [ "$secs" -lt 60 ]; then
+    printf '<1m'
+  elif [ "$secs" -lt 3600 ]; then
+    printf '%dm' "$(( secs / 60 ))"
+  else
+    printf '%dh%02dm' "$(( secs / 3600 ))" "$(( (secs % 3600) / 60 ))"
+  fi
+}
+
+# "23% 4h24m" — percentage coloured by severity, countdown dimmed.
+window_segment() {
+  local pct="$1" resets_at="$2" out
+  # `return 0`, not a bare `return`: a bare one propagates is_number's non-zero
+  # status out through the `seg=$(window_segment …)` assignment, and `set -e`
+  # then aborts the script on the first absent window.
+  is_number "$pct" || return 0
+  out="$(colour_for "$pct" 50 80)$(printf '%.0f%%' "$pct")${OFF}"
+  if is_number "$resets_at"; then
+    out="${out} ${DIM}$(remaining "$resets_at")${OFF}"
+  fi
+  printf '%s' "$out"
+}
+
+join_segments() {
+  local line="" s
+  for s in "$@"; do
+    [ -n "$line" ] && line="${line}${DIM} · ${OFF}"
+    line="${line}${s}"
+  done
+  printf '%s' "$line"
+}
+
+# --- read the payload in one pass -----------------------------------------
+
+# Tab-separated, with IFS pinned to tab so values that legitimately contain
+# spaces ("Opus 5", a directory name) stay in one field; "-" marks absent.
+IFS=$'\t' read -r model_name cur_dir ctx_pct five_pct five_reset week_pct week_reset <<<"$(
+  printf '%s' "$input" | jq -r '[
+    (.model.display_name                    // "-"),
+    (.workspace.current_dir // .cwd         // "-"),
+    (.context_window.used_percentage        // "-"),
+    (.rate_limits.five_hour.used_percentage // "-"),
+    (.rate_limits.five_hour.resets_at       // "-"),
+    (.rate_limits.seven_day.used_percentage // "-"),
+    (.rate_limits.seven_day.resets_at       // "-")
+  ] | @tsv' 2>/dev/null || printf -- '-\t-\t-\t-\t-\t-\t-'
+)" || true
+
+# --- line 1: model, directory, context bar --------------------------------
+
+line1_parts=()
+if present "$model_name"; then
+  line1_parts+=("${DIM}${model_name}${OFF}")
+fi
+if present "$cur_dir"; then
+  line1_parts+=("${DIM}$(basename "$cur_dir")${OFF}")
+fi
+
+line1=""
+for part in ${line1_parts[@]+"${line1_parts[@]}"}; do
+  [ -n "$line1" ] && line1="${line1}${DIM} │ ${OFF}"
+  line1="${line1}${part}"
+done
+
+# used_percentage is null before the first API call and again after /compact,
+# so the bar is omitted rather than rendered as a misleading 0%.
+if is_number "$ctx_pct"; then
+  filled="$(awk -v p="$ctx_pct" -v w="$BAR_WIDTH" \
+    'BEGIN { n = int(p * w / 100 + 0.5); print (n > w ? w : n) }')"
+  bar=""
+  for i in $(seq 1 "$BAR_WIDTH"); do
+    if [ "$i" -le "$filled" ]; then bar="${bar}█"; else bar="${bar}░"; fi
+  done
+  ctx_colour="$(colour_for "$ctx_pct" 70 85)"
+  line1="${line1} ${ctx_colour}${bar} $(printf '%.0f%%' "$ctx_pct")${OFF}"
+fi
+
+# An `&&` short-circuit here would return non-zero when line 1 is empty, which
+# under `set -e` aborts the script before the limits line is ever printed.
+if [ -n "${line1//[[:space:]]/}" ]; then
+  printf '%s\n' "$line1"
+fi
+
+# --- line 2: plan limits --------------------------------------------------
+
+cache_ts=0
+if [ -f "$CACHE" ]; then
+  cache_ts="$(jq -r '.ts // 0' "$CACHE" 2>/dev/null || echo 0)"
+fi
+
+# Skip the refresh when this session has no plan limits (API key, Bedrock,
+# Vertex) — `/usage` would have nothing to report and the segment is suppressed
+# below anyway. claude-limits-refresh locks, so concurrent sessions collapse to
+# a single run.
+if [ -x "$REFRESH_BIN" ] \
+  && { is_number "$five_pct" || is_number "$week_pct"; } \
+  && [ "$(( now - cache_ts ))" -ge "$MAX_CACHE_AGE" ]; then
+  nohup "$REFRESH_BIN" >/dev/null 2>&1 &
+fi
+
+model_pct="-"
+model_label=""
+if [ -f "$CACHE" ]; then
+  IFS=$'\t' read -r model_pct model_label <<<"$(
+    jq -r '[(.pct // "-"), (.label // "")] | @tsv' "$CACHE" 2>/dev/null \
+      || printf -- '-\t'
+  )" || true
+fi
+
+# Same `set -e` hazard as line 1: a bare `[ -n "$seg" ] && ...` returns non-zero
+# for an absent window and would abort before the remaining windows are added.
+limit_segments=()
+seg="$(window_segment "$five_pct" "$five_reset")"
+if [ -n "$seg" ]; then limit_segments+=("$seg"); fi
+seg="$(window_segment "$week_pct" "$week_reset")"
+if [ -n "$seg" ]; then limit_segments+=("$seg"); fi
+
+# The per-model bucket is only meaningful alongside the plan windows: it is read
+# from a cache that outlives the session, so on an API-key/Bedrock/Vertex run —
+# or before the first API response lands — showing it alone would report a plan
+# limit that does not apply here, using a number from some earlier session.
+if [ "${#limit_segments[@]}" -gt 0 ] && is_number "$model_pct" && present "$model_label"; then
+  limit_segments+=(
+    "$(colour_for "$model_pct" 50 80)$(printf '%.0f%%' "$model_pct")${OFF} ${DIM}${model_label}${OFF}"
+  )
+fi
+
+if [ "${#limit_segments[@]}" -gt 0 ]; then
+  printf '%s\n' "$(join_segments "${limit_segments[@]}")"
+fi
+
+# A statusline that exits non-zero gets logged as a failing hook, so succeed
+# unconditionally — a missing segment is not an error.
+exit 0

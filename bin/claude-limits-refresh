@@ -1,0 +1,79 @@
+#!/usr/bin/env bash
+# Refresh the cached per-model ("Fable") weekly usage percentage.
+#
+# Why this exists: Claude Code's statusline payload carries only
+# rate_limits.five_hour and rate_limits.seven_day. That is not an oversight in
+# the docs — the 2.1.221 bundle builds the statusline object by hand-picking
+# exactly those two windows:
+#
+#   R = { ...A.five_hour && {five_hour: {...}}, ...A.seven_day && {seven_day: {...}} }
+#
+# and discards the per-model windows it tracks internally in the same state
+# object (seven_day_opus, seven_day_sonnet, and a model_scoped[] array whose
+# display_name is the server-supplied bucket label, e.g. "Fable").
+#
+# The only user-facing source for the per-model number is `claude -p /usage`
+# (a local-jsx slash command with supportsNonInteractive, so it works headless).
+# It costs ~2s of CLI startup, which is far too slow to run inline in a
+# statusline that re-renders constantly. So this script runs detached, parses
+# that output, and leaves the result in a cache file that
+# claude-statusline-limits reads instantly.
+#
+# Writes: ~/.claude/cache/model-usage.json  {"label":"Fable","pct":0,"ts":1754...}
+# Locking: an atomic mkdir, so N concurrent sessions spawn one refresh, not N.
+# Fails closed on its own cache only — never prints, never blocks a render.
+set -euo pipefail
+
+CACHE="${HOME}/.claude/cache/model-usage.json"
+LOCK="${HOME}/.claude/cache/model-usage.lock"
+STALE_LOCK_SECONDS=120
+
+mkdir -p "$(dirname "$CACHE")"
+
+now() { date +%s; }
+
+# Atomic lock. If the directory exists but predates STALE_LOCK_SECONDS, a
+# previous run died before cleaning up, so take it over rather than wedging
+# the refresh permanently.
+if ! mkdir "$LOCK" 2>/dev/null; then
+  lock_mtime="$(stat -f %m "$LOCK" 2>/dev/null || echo 0)"
+  if [ "$(( $(now) - lock_mtime ))" -lt "$STALE_LOCK_SECONDS" ]; then
+    exit 0
+  fi
+  rmdir "$LOCK" 2>/dev/null || true
+  mkdir "$LOCK" 2>/dev/null || exit 0
+fi
+trap 'rmdir "$LOCK" 2>/dev/null || true' EXIT
+
+usage_output="$(claude -p /usage 2>/dev/null || true)"
+
+# `/usage` prints one "Current week (X)" line per bucket. The all-models line
+# duplicates rate_limits.seven_day, which the statusline already has for free,
+# so take the first bucket that is not it. Matching on the label rather than a
+# hardcoded "Fable" keeps this working when the bucket is renamed.
+week_line="$(
+  printf '%s\n' "$usage_output" \
+    | grep -E 'Current week \(' \
+    | grep -v 'all models' \
+    | head -1
+)"
+
+label=""
+pct=""
+if [ -n "$week_line" ]; then
+  label="$(printf '%s' "$week_line" | sed -E 's/.*Current week \(([^)]+)\).*/\1/')"
+  pct="$(printf '%s' "$week_line" | sed -E 's/.*\): *([0-9]+(\.[0-9]+)?)% used.*/\1/')"
+fi
+
+# Only accept a clean parse. On anything unexpected, cache an explicit null so
+# the statusline hides the segment — but still stamp ts, so a broken or
+# renamed `/usage` format degrades to "no Fable segment" instead of respawning
+# a 2s subprocess on every single render.
+tmp="$(mktemp "${CACHE}.XXXXXX")"
+if [ -n "$label" ] && printf '%s' "$pct" | grep -Eq '^[0-9]+(\.[0-9]+)?$'; then
+  printf '{"label":%s,"pct":%s,"ts":%s}\n' \
+    "$(printf '%s' "$label" | jq -Rs .)" "$pct" "$(now)" >"$tmp"
+else
+  printf '{"label":null,"pct":null,"ts":%s}\n' "$(now)" >"$tmp"
+fi
+mv "$tmp" "$CACHE"

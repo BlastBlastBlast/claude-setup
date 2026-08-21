@@ -68,6 +68,12 @@ wt() {
   fi
 }
 
+# ── kubectl helpers (kc, kcns, k) ─────────────────────────────────────────────
+source "$HOME/dev/claude-setup/shell/kubectl.sh"
+
+# ── macOS helpers (screensaver, awake) ───────────────────────────────────────
+source "$HOME/dev/claude-setup/shell/macos.sh"
+
 # ── Aliases ───────────────────────────────────────────────────────────────────
 alias ls='eza --icons=always'
 alias ll='eza -la --icons=always --git --group-directories-first'
@@ -111,3 +117,4 @@ setopt HIST_IGNORE_SPACE
 
 # To customize prompt, run `p10k configure` or edit ~/.p10k.zsh.
 [[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
+export PATH="/opt/homebrew/share/google-cloud-sdk/bin:$PATH"
