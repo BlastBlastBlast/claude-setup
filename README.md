@@ -51,7 +51,7 @@ you open with Claude Code (each repo can still layer its own `CLAUDE.md`/`AGENTS
 | `cmux/cmux.json` | `~/.config/cmux/cmux.json` | cmux config + the **"Claude session"** workspace layout (claude pane + shell pane). |
 | `bin/wt` | `~/.local/bin/wt` | git worktree + cmux session lifecycle — see [Parallel sessions](#parallel-sessions-wt--cmux). |
 | `bin/promote-skill` | `~/.local/bin/promote-skill` | Move a skill between a repo's `.claude/skills/` and global scope. |
-| `bin/claude-guard-destructive` | `~/.local/bin/claude-guard-destructive` | `PreToolUse` hook that blocks destructive Bash commands (`rm -rf`, `sudo`, force-push) before they run. |
+| `bin/claude-guard-destructive` | `~/.local/bin/claude-guard-destructive` | `PreToolUse` hook that blocks fetch-and-execute (`curl \| sh`), bare force-push (`--force-with-lease` stays allowed), and AI-attribution footers in commits/PRs before they run. |
 | `shell/zshrc` | `~/.zshrc` | Managed zsh config — prompt, history (`atuin`), and tooling; sources `shell/wt.sh`. |
 | `shell/sheldon/plugins.toml` | `~/.config/sheldon/plugins.toml` | `sheldon` zsh plugin declarations. |
 | `shell/wt.sh` | sourced from `~/.zshrc` | Makes `wt here` `cd` your shell into the worktree automatically. |

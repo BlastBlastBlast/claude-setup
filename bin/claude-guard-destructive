@@ -33,4 +33,24 @@ if printf '%s' "$cmd" | grep -Eq \
   exit 2
 fi
 
+# Bare force-push. permissions.deny can only glob `git push -f*`; the long-form
+# `--force` needs a negative match against `--force-with-lease`, which globs
+# can't express — so it lives here. The flag must appear in the same command
+# segment (no |;& between) as `git push`, so flags in unrelated commands or
+# later pipeline stages don't false-positive. `--force-with-lease` passes.
+if printf '%s' "$cmd" | grep -Eq \
+  'git[[:space:]]+push[^|;&]*[[:space:]](--force|-[a-eg-z]*f[a-eg-z]*)($|[[:space:]])'; then
+  echo "Blocked by claude-guard-destructive: bare force-push is denied; use git push --force-with-lease on your own branch." >&2
+  exit 2
+fi
+
+# AI attribution in commits/PRs ("no AI attribution anywhere" is a hard rule in
+# CLAUDE.md; prose is advisory, this is the guarantee). Matches only the precise
+# attribution markers so commits that merely mention Claude/CLAUDE.md pass.
+if printf '%s' "$cmd" | grep -Eq '(git[[:space:]]+commit|gh[[:space:]]+pr[[:space:]]+(create|edit))' &&
+   printf '%s' "$cmd" | grep -Eiq 'co-authored-by:[[:space:]]*claude|generated with[[:space:]]*\[?claude'; then
+  echo "Blocked by claude-guard-destructive: AI attribution in commit messages or PR bodies is denied (no Co-Authored-By/Generated-with footers)." >&2
+  exit 2
+fi
+
 exit 0

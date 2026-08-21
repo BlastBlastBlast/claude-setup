@@ -25,7 +25,6 @@ import json
 ep = json.load(open('$SETTINGS')).get('enabledPlugins', {})
 expected = {
   'superpowers@claude-plugins-official',
-  'feature-dev@claude-plugins-official',
   'code-review@claude-plugins-official',
   'security-guidance@claude-plugins-official',
   'code-simplifier@claude-plugins-official',
