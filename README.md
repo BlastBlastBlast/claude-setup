@@ -66,6 +66,11 @@ idioms · Reuse & helpers · Architecture · Anti-patterns · Sources), and cite
 
 `lang-python` · `lang-js` · `lang-typescript` · `lang-go` · `lang-rust` · `lang-java` · `lang-kotlin`
 
+**Session workflow:**
+
+- **`handoff`** — end-of-session handoff doc with a paste-ready continuation prompt at the top,
+  so a fresh session resumes from one paste after `/clear`.
+
 **Meta / lifecycle:**
 
 - **`research-to-skill`** — author a new conventions skill the right way: authoritative-source
@@ -73,6 +78,10 @@ idioms · Reuse & helpers · Architecture · Anti-patterns · Sources), and cite
   `writing-skills`.
 - **`bin/promote-skill`** — graduate a repo-local skill to global (`up`) or seed a repo-local
   one from a global skill (`down`); `--dry-run`/`--force`, validates the target first.
+
+Skills follow Claude 5-era conventions: trigger-sharp descriptions that state when NOT to fire,
+judgment criteria instead of MUST/NEVER mandates, and lookup material in on-demand files rather
+than the always-loaded body.
 
 ## Plugins
 
@@ -84,14 +93,23 @@ official-marketplace plugins.
 
 Enabled (official):
 
-- **`superpowers`** — the brainstorm → spec → plan → TDD → review skill workflow.
-- **`feature-dev`** — guided feature development with codebase exploration agents.
+- **`superpowers`** — the brainstorm → spec → plan → TDD → review skill workflow. Runs under the
+  **Claude 5 carve-outs** in `claude/CLAUDE.md` (Iron Laws as judgment rather than gates,
+  brainstorming skipped for bounded mechanical tasks, reviews scaled to the diff, no subagent
+  verifying its own session's work) — Opus 5-class models self-verify, so hard verification
+  scaffolding written for older models now costs quality.
 - **`code-review`** — PR-style review of a diff.
 - **`security-guidance`** — security review of pending changes.
 - **`code-simplifier`** — reuse/simplify/efficiency cleanups.
 - **`skill-creator`** — author, evaluate, and benchmark skills (incl. description optimization + variance analysis).
 - **`session-report`** — end-of-session summaries.
 - **`pyright-lsp`** / **`typescript-lsp`** — language-server diagnostics for Python / TypeScript.
+
+Deliberately disabled:
+
+- **`feature-dev`** — its bundled code-reviewer only reports findings at confidence ≥ 80, which
+  measurably depresses review recall on Opus 5 (Anthropic's guidance: report everything, filter in
+  a separate pass); it also duplicates the superpowers pipeline.
 
 📖 Rationale, trust notes, and surface tags for every plugin (official vs community):
 [`docs/plugins.md`](docs/plugins.md).
@@ -169,6 +187,14 @@ A layered global setup: universal principles in `claude/CLAUDE.md`; per-language
 on-demand, expert-sourced skills authored via the `research-to-skill` meta-skill;
 permissions/hooks in `claude/settings.json`; and the `wt` git-worktree + cmux workflow for
 isolating parallel sessions. `promote-skill` moves skills between repo-local and global scope.
+
+The setup is tuned for the **Claude 5 / Opus 5 generation** (2026-08): advisory prose only where
+judgment is wanted; deterministic layers — hooks, permission deny rules, subagent caps
+(`CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH`/`_CONCURRENT_SUBAGENTS`) — for everything that must never
+happen; verification right-sized to the diff instead of mandated; and a lean CLAUDE.md with
+conditional guidance pushed into skills. Sources: Anthropic's
+[Prompting Claude Opus 5](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-opus-5)
+and [The new rules of context engineering for Claude 5-generation models](https://claude.com/blog/the-new-rules-of-context-engineering-for-claude-5-generation-models).
 
 ## Tests
 
