@@ -45,7 +45,7 @@ you open with Claude Code (each repo can still layer its own `CLAUDE.md`/`AGENTS
 
 | Path | Symlinked / wired to | Purpose |
 |------|----------------------|---------|
-| `claude/CLAUDE.md` | `~/.claude/CLAUDE.md` | Universal working principles — research/verify/reuse, complexity & typing discipline, git workflow, commits, tests, security. |
+| `claude/CLAUDE.md` | `~/.claude/CLAUDE.md` | Universal working principles — research-before-assuming, reuse, file organisation & typing discipline, git workflow, commits, tests, security. |
 | `claude/settings.json` | `~/.claude/settings.json` | Model, status line, permissions (allow read-only/safe `git`+`gh`; **deny** reading `.env`/keys/`~/.ssh`), and the `PostToolUse` context-monitor hook. |
 | `claude/skills/` | `~/.claude/skills/` | Global skills — see [Skills](#skills). |
 | `cmux/cmux.json` | `~/.config/cmux/cmux.json` | cmux config + the **"Claude session"** workspace layout (claude pane + shell pane). |
