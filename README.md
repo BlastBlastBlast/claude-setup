@@ -38,6 +38,12 @@ cd ~/dev/claude-setup
 files to `*.bak.*`), sets `core.hooksPath` to `hooks/`, and runs `brew bundle`. Re-run it any
 time after pulling changes.
 
+It also checks the Claude Code version against `MIN_CLAUDE_CODE_VERSION` (currently 2.1.219 —
+the floor for the subagent caps and path-scoped rules this config uses) and **warns** if the
+harness is older: outdated harnesses ignore unknown config silently, so a version below the
+floor means the caps and rules simply don't apply. Claude Code self-updates, so the fix is
+usually just restarting it.
+
 ## What's in here
 
 Everything below `claude/` is **user-level**, so once symlinked it applies in **every** repo
@@ -48,6 +54,7 @@ you open with Claude Code (each repo can still layer its own `CLAUDE.md`/`AGENTS
 | `claude/CLAUDE.md` | `~/.claude/CLAUDE.md` | Universal working principles — research-before-assuming, reuse, file organisation & typing discipline, git workflow, commits, tests, security. |
 | `claude/settings.json` | `~/.claude/settings.json` | Model, status line, permissions (allow read-only/safe `git`+`gh`; **deny** reading `.env`/keys/`~/.ssh`), and the `PostToolUse` context-monitor hook. |
 | `claude/skills/` | `~/.claude/skills/` | Global skills — see [Skills](#skills). |
+| `claude/rules/` | `~/.claude/rules/` | Path-scoped rules (`paths:` frontmatter) — load only when Claude reads matching files, keeping conditional guidance out of the always-loaded context. |
 | `cmux/cmux.json` | `~/.config/cmux/cmux.json` | cmux config + the **"Claude session"** workspace layout (claude pane + shell pane). |
 | `bin/wt` | `~/.local/bin/wt` | git worktree + cmux session lifecycle — see [Parallel sessions](#parallel-sessions-wt--cmux). |
 | `bin/promote-skill` | `~/.local/bin/promote-skill` | Move a skill between a repo's `.claude/skills/` and global scope. |
@@ -192,7 +199,8 @@ The setup is tuned for the **Claude 5 / Opus 5 generation** (2026-08): advisory 
 judgment is wanted; deterministic layers — hooks, permission deny rules, subagent caps
 (`CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH`/`_CONCURRENT_SUBAGENTS`) — for everything that must never
 happen; verification right-sized to the diff instead of mandated; and a lean CLAUDE.md with
-conditional guidance pushed into skills. Sources: Anthropic's
+conditional guidance pushed into skills (task-conditional) and `claude/rules/`
+(path-conditional). `install.sh` guards the harness version floor these mechanisms need. Sources: Anthropic's
 [Prompting Claude Opus 5](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-opus-5)
 and [The new rules of context engineering for Claude 5-generation models](https://claude.com/blog/the-new-rules-of-context-engineering-for-claude-5-generation-models).
 

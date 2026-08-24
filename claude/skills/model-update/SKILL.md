@@ -86,6 +86,7 @@ Audit every Phase 1 surface against the ruleset. Per surface:
 | Plugins | Bundled prompts for baked-in conflicts (severity filters, forced verification, delegation pushes) — un-overridable from CLAUDE.md; may warrant a disable. |
 | Hooks/guards | Still enforce what prose was demoted from; test for false positives against real command shapes. |
 | Tier placement | "Every time X do Y" → hook; "must never happen" → deny rule/guard; conditional-on-path → rules; conditional-on-task → skill; universal → CLAUDE.md. |
+| Version floor | If the setup declares a minimum harness version (e.g. `MIN_CLAUDE_CODE_VERSION` in its installer), check whether newly adopted version-gated config raises it — map features to versions via `code.claude.com/docs/en/changelog`. |
 
 **Deliver the report before changing anything**: findings prioritized by impact, each with
 the surface, the verified source, the proposed change (delete/add/adjust/move-tier), and the
