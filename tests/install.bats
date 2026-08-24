@@ -60,12 +60,57 @@ setup() {
   [ "$(readlink "$HOME/.claude/CLAUDE.md")" = "${REPO_ROOT}/claude/CLAUDE.md" ]
   [ "$(readlink "$HOME/.claude/settings.json")" = "${REPO_ROOT}/claude/settings.json" ]
   [ "$(readlink "$HOME/.claude/skills")" = "${REPO_ROOT}/claude/skills" ]
+  [ "$(readlink "$HOME/.claude/rules")" = "${REPO_ROOT}/claude/rules" ]
   [ "$(readlink "$HOME/.config/cmux/cmux.json")" = "${REPO_ROOT}/cmux/cmux.json" ]
   [ "$(readlink "$HOME/.local/bin/wt")" = "${REPO_ROOT}/bin/wt" ]
   [ "$(readlink "$HOME/.local/bin/promote-skill")" = "${REPO_ROOT}/bin/promote-skill" ]
   [ "$(readlink "$HOME/.local/bin/claude-guard-destructive")" = "${REPO_ROOT}/bin/claude-guard-destructive" ]
   [ "$(readlink "$HOME/.zshrc")" = "${REPO_ROOT}/shell/zshrc" ]
   [ "$(readlink "$HOME/.config/sheldon/plugins.toml")" = "${REPO_ROOT}/shell/sheldon/plugins.toml" ]
+}
+
+# check_claude_version tests stub `claude` via a fake bin dir on PATH; the
+# check must always exit 0 (warn-only) and warn exactly when below the floor.
+_fake_claude() {
+  local ver="$1" bindir="${BATS_TEST_TMPDIR}/fakebin"
+  mkdir -p "$bindir"
+  printf '#!/bin/sh\necho "%s (Claude Code)"\n' "$ver" > "$bindir/claude"
+  chmod +x "$bindir/claude"
+  export PATH="$bindir:$PATH"
+}
+
+@test "check_claude_version passes silently at or above the floor" {
+  _fake_claude "$MIN_CLAUDE_CODE_VERSION"
+  run check_claude_version
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+}
+
+@test "check_claude_version warns (but exits 0) below the floor" {
+  _fake_claude "2.1.100"
+  run check_claude_version
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"2.1.100"* ]]
+  [[ "$output" == *"silently ignored"* ]]
+}
+
+@test "check_claude_version warns (but exits 0) when claude is missing" {
+  bindir="${BATS_TEST_TMPDIR}/emptybin"
+  mkdir -p "$bindir"
+  PATH="$bindir:/usr/bin:/bin" run check_claude_version
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"not found"* ]]
+}
+
+@test "every claude/rules file has a paths frontmatter list" {
+  for f in "${REPO_ROOT}"/claude/rules/*.md; do
+    run python3 -c "
+import sys
+head = open('$f').read().split('---')
+assert head[1].strip().startswith('paths:'), '$f missing paths frontmatter'
+"
+    [ "$status" -eq 0 ]
+  done
 }
 
 @test "_set_hooks_path points a repo's git hooks at the tracked hooks/ dir" {
