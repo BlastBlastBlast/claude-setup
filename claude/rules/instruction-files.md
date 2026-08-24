@@ -4,6 +4,7 @@ paths:
   - "**/AGENTS.md"
   - "**/SKILL.md"
   - "**/.claude/rules/**"
+  - "**/.claude/settings*.json"
 ---
 
 # Editing instruction files (CLAUDE.md, AGENTS.md, skills, rules)
@@ -24,3 +25,7 @@ too literally and emphasis inflation causes overtriggering. State the criterion 
 ("a wrapping CTA reads as broken"), not an ALL-CAPS ban. Skill descriptions are always-loaded:
 keep them trigger-sharp, third-person, with negative scope, and never summarize the skill's
 workflow in them.
+
+The full classification procedure (the five ordered questions, hook/rule authoring contracts,
+and the current tier inventory) lives in the setup repo's `docs/enforcement-tiers.md` — read it
+before converting prose to a hook or rule, or adding a new one.

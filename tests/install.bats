@@ -65,6 +65,7 @@ setup() {
   [ "$(readlink "$HOME/.local/bin/wt")" = "${REPO_ROOT}/bin/wt" ]
   [ "$(readlink "$HOME/.local/bin/promote-skill")" = "${REPO_ROOT}/bin/promote-skill" ]
   [ "$(readlink "$HOME/.local/bin/claude-guard-destructive")" = "${REPO_ROOT}/bin/claude-guard-destructive" ]
+  [ "$(readlink "$HOME/.local/bin/claude-guard-agent-dispatch")" = "${REPO_ROOT}/bin/claude-guard-agent-dispatch" ]
   [ "$(readlink "$HOME/.zshrc")" = "${REPO_ROOT}/shell/zshrc" ]
   [ "$(readlink "$HOME/.config/sheldon/plugins.toml")" = "${REPO_ROOT}/shell/sheldon/plugins.toml" ]
 }

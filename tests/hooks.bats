@@ -121,6 +121,43 @@ Co-Authored-By: Claude <noreply@anthropic.com>"'
   [ "$status" -eq 0 ]
 }
 
+@test "claude-guard-destructive blocks a commit message without a conventional prefix" {
+  _guard 'git commit -m "updated some stuff"'
+  [ "$status" -eq 2 ]
+}
+
+@test "claude-guard-destructive allows a conventional commit message" {
+  _guard 'git commit -m "feat(guard): add commit format check"'
+  [ "$status" -eq 0 ]
+}
+
+@test "claude-guard-destructive allows a multi-line conventional commit" {
+  _guard 'git commit -m "fix: repair the thing
+
+Body explaining why."'
+  [ "$status" -eq 0 ]
+}
+
+@test "claude-guard-destructive allows amend without a message" {
+  _guard 'git commit --amend --no-edit'
+  [ "$status" -eq 0 ]
+}
+
+@test "claude-guard-destructive blocks git merge main on a branch" {
+  _guard 'git merge main'
+  [ "$status" -eq 2 ]
+}
+
+@test "claude-guard-destructive blocks git merge origin/main" {
+  _guard 'git merge origin/main'
+  [ "$status" -eq 2 ]
+}
+
+@test "claude-guard-destructive allows merging a feature branch" {
+  _guard 'git merge feature/some-branch'
+  [ "$status" -eq 0 ]
+}
+
 @test "claude-guard-destructive allows a benign command" {
   _guard 'ls -la'
   [ "$status" -eq 0 ]
@@ -133,5 +170,46 @@ Co-Authored-By: Claude <noreply@anthropic.com>"'
 
 @test "claude-guard-destructive fails open on non-JSON stdin" {
   run bash -c "printf 'not json at all' | ${REPO_ROOT}/bin/claude-guard-destructive"
+  [ "$status" -eq 0 ]
+}
+
+# Build an Agent-dispatch hook payload from SUBAGENT_TYPE/MODEL env vars.
+_agent_guard() {
+  SUBAGENT_TYPE="${1-}" MODEL="${2-}" run bash -c 'python3 -c "
+import json, os
+ti = {\"prompt\": \"do the thing\", \"description\": \"test\"}
+if os.environ.get(\"SUBAGENT_TYPE\"): ti[\"subagent_type\"] = os.environ[\"SUBAGENT_TYPE\"]
+if os.environ.get(\"MODEL\"): ti[\"model\"] = os.environ[\"MODEL\"]
+print(json.dumps({\"tool_input\": ti}))
+" | '"${REPO_ROOT}/bin/claude-guard-agent-dispatch"
+}
+
+@test "agent-dispatch guard blocks a general-purpose dispatch without a model" {
+  _agent_guard "general-purpose" ""
+  [ "$status" -eq 2 ]
+}
+
+@test "agent-dispatch guard blocks a typeless dispatch without a model" {
+  _agent_guard "" ""
+  [ "$status" -eq 2 ]
+}
+
+@test "agent-dispatch guard allows general-purpose with an explicit model" {
+  _agent_guard "general-purpose" "sonnet"
+  [ "$status" -eq 0 ]
+}
+
+@test "agent-dispatch guard allows typed agents that pin their own model" {
+  _agent_guard "claude-code-guide" ""
+  [ "$status" -eq 0 ]
+}
+
+@test "agent-dispatch guard allows forks (model is ignored by design)" {
+  _agent_guard "fork" ""
+  [ "$status" -eq 0 ]
+}
+
+@test "agent-dispatch guard fails open on non-JSON stdin" {
+  run bash -c "printf 'nope' | ${REPO_ROOT}/bin/claude-guard-agent-dispatch"
   [ "$status" -eq 0 ]
 }
