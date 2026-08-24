@@ -44,6 +44,25 @@ if printf '%s' "$cmd" | grep -Eq \
   exit 2
 fi
 
+# Conventional-commit format (backstop for the CLAUDE.md rule; the prose tells
+# Claude what to write, this catches drift). Only checked when an inline -m
+# message is extractable; amend/fixup/merge and unextractable forms fail open.
+if printf '%s' "$cmd" | grep -Eq 'git[[:space:]]+commit' &&
+   ! printf '%s' "$cmd" | grep -Eq -- '--amend|--fixup|--squash|--allow-empty-message'; then
+  msg="$(printf '%s' "$cmd" | grep -oE -- '-m[[:space:]]+["'"'"'][^"'"'"']+' | head -1 | sed -E 's/^-m[[:space:]]+["'"'"']//')"
+  if [ -n "$msg" ] && ! printf '%s' "$msg" | grep -Eq '^(feat|fix|refactor|chore|docs|test|ci|build|perf|style|revert)(\([^)]*\))?!?: '; then
+    echo "Blocked by claude-guard-destructive: commit message must use a conventional prefix (feat:, fix:, refactor:, chore:, docs:, ...). Got: ${msg%%$'\n'*}" >&2
+    exit 2
+  fi
+fi
+
+# Merging main into a feature branch is banned by CLAUDE.md (rebase instead);
+# this is the deterministic backstop.
+if printf '%s' "$cmd" | grep -Eq 'git[[:space:]]+merge[[:space:]]+(--[a-z-]+[[:space:]]+)*(origin/)?(main|master)($|[[:space:]])'; then
+  echo "Blocked by claude-guard-destructive: never merge main into a branch - rebase instead (git fetch origin && git rebase origin/main)." >&2
+  exit 2
+fi
+
 # AI attribution in commits/PRs ("no AI attribution anywhere" is a hard rule in
 # CLAUDE.md; prose is advisory, this is the guarantee). Matches only the precise
 # attribution markers so commits that merely mention Claude/CLAUDE.md pass.
