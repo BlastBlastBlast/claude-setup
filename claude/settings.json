@@ -55,6 +55,15 @@
             "command": "$HOME/.local/bin/claude-guard-destructive"
           }
         ]
+      },
+      {
+        "matcher": "Agent",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.local/bin/claude-guard-agent-dispatch"
+          }
+        ]
       }
     ],
     "PostToolUse": [
