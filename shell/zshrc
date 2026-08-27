@@ -6,6 +6,13 @@ fi
 # ~/.zshrc — Lars terminal setup 2026
 # Stack: Sheldon → Powerlevel10k → Atuin → mise → fzf-tab
 
+# ── Repo location ────────────────────────────────────────────────────────────
+# ~/.zshrc is a symlink into this repo's shell/ dir (see install.sh). %N is the
+# file currently being sourced; :A resolves the symlink, :h takes its dirname.
+# Everything below sources helpers relative to this, so the clone can live
+# anywhere — no hardcoded ~/dev/claude-setup.
+CLAUDE_SETUP_SHELL_DIR="${${(%):-%N}:A:h}"
+
 # ── PATH ─────────────────────────────────────────────────────────────────────
 export PATH="$HOME/.local/bin:$PATH"
 
@@ -57,22 +64,14 @@ function y() {
     rm -f -- "$tmp"
 }
 
-# ── wt — git worktree + cmux session manager ─────────────────────────────────
-wt() {
-  if [ "${1:-}" = "here" ]; then
-    local _wt_dir
-    _wt_dir="$(command wt "$@")" || return $?
-    [ -n "$_wt_dir" ] && builtin cd "$_wt_dir"
-  else
-    command wt "$@"
-  fi
-}
-
-# ── kubectl helpers (kc, kcns, k) ─────────────────────────────────────────────
-source "$HOME/dev/claude-setup/shell/kubectl.sh"
-
-# ── macOS helpers (screensaver, awake) ───────────────────────────────────────
-source "$HOME/dev/claude-setup/shell/macos.sh"
+# ── Shell helpers from this repo ──────────────────────────────────────────────
+# wt.sh    — `wt here`/`wt rm` cd the shell into/out of the worktree
+# kubectl.sh — kc, kcns, k (needs compinit, which ran above)
+# macos.sh — screensaver, awake
+for _helper in wt kubectl macos; do
+  [[ -r "$CLAUDE_SETUP_SHELL_DIR/$_helper.sh" ]] && source "$CLAUDE_SETUP_SHELL_DIR/$_helper.sh"
+done
+unset _helper
 
 # ── Aliases ───────────────────────────────────────────────────────────────────
 alias ls='eza --icons=always'
