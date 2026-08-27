@@ -70,6 +70,61 @@ setup() {
   [ "$(readlink "$HOME/.config/sheldon/plugins.toml")" = "${REPO_ROOT}/shell/sheldon/plugins.toml" ]
 }
 
+# link_optional_tools links the two Go tools when they are already built, and
+# otherwise prints a one-time note instead of leaving the misconfiguration
+# invisible (settings.json tolerates their absence at runtime).
+_fake_go() {
+  local gopath="$1" bindir="${BATS_TEST_TMPDIR}/gobin"
+  mkdir -p "$bindir"
+  printf '#!/bin/sh\n[ "$1" = env ] && [ "$2" = GOPATH ] && echo "%s"\n' "$gopath" > "$bindir/go"
+  chmod +x "$bindir/go"
+  export PATH="$bindir:$PATH"
+}
+
+@test "link_optional_tools links both tools from GOPATH when they are built" {
+  export HOME="${BATS_TEST_TMPDIR}/home"
+  gopath="${BATS_TEST_TMPDIR}/go"
+  mkdir -p "$HOME" "$gopath/bin"
+  for tool in claude-statusline claude-context-monitor; do
+    printf '#!/bin/sh\n' > "$gopath/bin/$tool"
+    chmod +x "$gopath/bin/$tool"
+  done
+  _fake_go "$gopath"
+
+  run link_optional_tools
+
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]   # nothing missing -> no note
+  [ "$(readlink "$HOME/.local/bin/claude-statusline")" = "$gopath/bin/claude-statusline" ]
+  [ "$(readlink "$HOME/.local/bin/claude-context-monitor")" = "$gopath/bin/claude-context-monitor" ]
+}
+
+@test "link_optional_tools notes both tools (but exits 0) when go is absent" {
+  export HOME="${BATS_TEST_TMPDIR}/home"
+  mkdir -p "$HOME" "${BATS_TEST_TMPDIR}/emptybin"
+
+  PATH="${BATS_TEST_TMPDIR}/emptybin:/usr/bin:/bin" run link_optional_tools
+
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"claude-statusline claude-context-monitor"* ]]
+  [[ "$output" == *"runs fine without them"* ]]
+  [ ! -e "$HOME/.local/bin/claude-statusline" ]
+}
+
+@test "link_optional_tools stays silent when the tools are already linked" {
+  export HOME="${BATS_TEST_TMPDIR}/home"
+  mkdir -p "$HOME/.local/bin" "${BATS_TEST_TMPDIR}/emptybin"
+  for tool in claude-statusline claude-context-monitor; do
+    printf '#!/bin/sh\n' > "$HOME/.local/bin/$tool"
+    chmod +x "$HOME/.local/bin/$tool"
+  done
+
+  PATH="${BATS_TEST_TMPDIR}/emptybin:/usr/bin:/bin" run link_optional_tools
+
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+}
+
 # check_claude_version tests stub `claude` via a fake bin dir on PATH; the
 # check must always exit 0 (warn-only) and warn exactly when below the floor.
 _fake_claude() {
