@@ -71,7 +71,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "$HOME/.local/bin/claude-context-monitor"
+            "command": "if [ -x \"$HOME/.local/bin/claude-context-monitor\" ]; then exec \"$HOME/.local/bin/claude-context-monitor\"; else cat >/dev/null 2>&1 || :; fi"
           }
         ]
       }
@@ -79,7 +79,7 @@
   },
   "statusLine": {
     "type": "command",
-    "command": "$HOME/.local/bin/claude-statusline"
+    "command": "if [ -x \"$HOME/.local/bin/claude-statusline\" ]; then exec \"$HOME/.local/bin/claude-statusline\"; else cat >/dev/null 2>&1 || :; fi"
   },
   "enabledPlugins": {
     "superpowers@claude-plugins-official": true,

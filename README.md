@@ -172,14 +172,19 @@ plan/doc, or rendered UI, it offers to open it in Crit instead — `crit` for th
 
 The status line and context-usage monitor come from the open-source
 [`stigsb/claude-context-monitor`](https://github.com/stigsb/claude-context-monitor) (Go). They
-are optional — without them Claude Code simply runs plain. `settings.json` references them at
-`$HOME/.local/bin/`. To enable:
+are genuinely optional: `settings.json` references them at `$HOME/.local/bin/` behind an
+`[ -x … ]` check, so if they aren't installed the hook and status line exit silently and
+Claude Code simply runs plain. To enable:
 
 ```bash
+brew install go
 go install github.com/stigsb/claude-context-monitor/...@latest
-ln -sf "$(go env GOPATH)/bin/claude-statusline"      "$HOME/.local/bin/claude-statusline"
-ln -sf "$(go env GOPATH)/bin/claude-context-monitor" "$HOME/.local/bin/claude-context-monitor"
+./install.sh   # links whatever it finds in $(go env GOPATH)/bin
 ```
+
+`install.sh` links the two binaries if they are already built, and otherwise prints a one-line
+note with these commands — so a fresh machine is told once, at install time, rather than
+discovering it later.
 
 ## Secrets
 

@@ -58,6 +58,35 @@ links() {
   link_file "$REPO_DIR/shell/sheldon/plugins.toml"  "${XDG_CONFIG_HOME:-$HOME/.config}/sheldon/plugins.toml"
 }
 
+# The status line and context monitor are optional Go tools (see README).
+# settings.json guards its references, so their absence is silent at runtime -
+# which also means a half-finished install is invisible. Link them if they are
+# already built, and otherwise say so once, here, with the commands to fix it.
+# Uses a space-separated string, not an array: macOS ships bash 3.2, where an
+# empty array expansion trips the `set -u` in main().
+link_optional_tools() {
+  local gobin="" missing="" tool
+  if command -v go >/dev/null 2>&1; then
+    gobin="$(go env GOPATH 2>/dev/null)/bin"
+  fi
+  for tool in claude-statusline claude-context-monitor; do
+    if [ -n "$gobin" ] && [ -x "$gobin/$tool" ]; then
+      link_file "$gobin/$tool" "$HOME/.local/bin/$tool"
+    elif [ ! -x "$HOME/.local/bin/$tool" ]; then
+      missing="${missing:+$missing }$tool"
+    fi
+  done
+  [ -n "$missing" ] || return 0
+  cat >&2 <<EOF
+
+note: optional status line / context monitor not installed ($missing).
+Claude Code runs fine without them - the config tolerates their absence. To enable:
+  brew install go
+  go install github.com/stigsb/claude-context-monitor/...@latest
+  $REPO_DIR/install.sh   # re-run to link them
+EOF
+}
+
 # Point this repo's git hooks at the tracked hooks/ dir (secret-scan pre-commit).
 _set_hooks_path() {
   git -C "$REPO_DIR" config core.hooksPath hooks 2>/dev/null || true
@@ -76,6 +105,7 @@ main() {
   set -euo pipefail
   check_claude_version
   links
+  link_optional_tools
   _set_hooks_path
   run_brew
   echo "claude-setup installed. (Pre-existing files, if any, saved as *.bak.*)"
