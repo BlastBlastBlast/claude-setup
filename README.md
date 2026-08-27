@@ -61,9 +61,11 @@ you open with Claude Code (each repo can still layer its own `CLAUDE.md`/`AGENTS
 | `bin/claude-guard-destructive` | `~/.local/bin/claude-guard-destructive` | `PreToolUse(Bash)` guard: blocks fetch-and-execute (`curl \| sh`), bare force-push (`--force-with-lease` stays allowed), AI-attribution footers, non-conventional commit messages, and merging main into a branch. |
 | `bin/claude-guard-agent-dispatch` | `~/.local/bin/claude-guard-agent-dispatch` | `PreToolUse(Agent)` guard: blocks generic subagent dispatches that omit an explicit `model` (typed agents and forks exempt). |
 | `docs/enforcement-tiers.md` | — | The classification procedure: which guidance becomes a hook, deny rule, path-scoped rule, or skill — plus authoring contracts and the tier inventory. |
-| `shell/zshrc` | `~/.zshrc` | Managed zsh config — prompt, history (`atuin`), and tooling; sources `shell/wt.sh`. |
+| `shell/zshrc` | `~/.zshrc` | Managed zsh config — prompt, history (`atuin`), and tooling. Resolves its own location from the `~/.zshrc` symlink, so it sources the helpers below from wherever the clone lives. |
 | `shell/sheldon/plugins.toml` | `~/.config/sheldon/plugins.toml` | `sheldon` zsh plugin declarations. |
-| `shell/wt.sh` | sourced from `~/.zshrc` | Makes `wt here` `cd` your shell into the worktree automatically. |
+| `shell/wt.sh` | sourced from `~/.zshrc` | Makes `wt here`/`wt rm` `cd` your shell into and out of the worktree automatically. |
+| `shell/kubectl.sh` | sourced from `~/.zshrc` | `kc` (switch context, tab-completable), `kcns` (switch namespace), `k` (`kubectl` alias). Needs `kubectl` + `jq`. |
+| `shell/macos.sh` | sourced from `~/.zshrc` | macOS helpers — screensaver, keep-awake. |
 | `hooks/pre-commit` | `core.hooksPath=hooks` | `gitleaks` secret scan before every commit (this repo only). |
 
 ## Skills
@@ -142,8 +144,8 @@ wt rm <branch>         # remove the worktree and delete the branch (close the ta
 - The new tab is named **`<repo>/<branch>`** (e.g. `trusthere/feature-login`) so you can see at
   a glance which repo + worktree each session belongs to.
 - Outside cmux, `wt new` prints a `cd … && claude` hint instead of opening a tab.
-- Source the optional `shell/wt.sh` in your shell rc to drop the `cd "$(…)"` wrapper for
-  `wt here`.
+- `shell/wt.sh` (already sourced by this repo's `zshrc`) drops the `cd "$(…)"` wrapper for
+  `wt here` and `wt rm`. Source it from your own rc if you don't use this `zshrc`.
 
 📖 **Full usage guide:** [`docs/parallel-sessions.md`](docs/parallel-sessions.md) — the cmux
 vertical-tab/horizontal-surface model, keybindings, close/re-start, and cross-repo use.
