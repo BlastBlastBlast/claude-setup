@@ -1,0 +1,134 @@
+#!/usr/bin/env bash
+# claude-handoff - where handoff docs live, and the SessionStart hook that
+# resumes one after /clear.
+#
+# Handoffs live OUTSIDE the working repo, so "never committed" is structural
+# rather than a rule you have to remember to add to every repo's .gitignore:
+#
+#   ~/.claude/handoffs/<worktree-slug>/
+#     2026-09-02-1422-topic.md
+#     latest.md            -> newest handoff; stable path, the manual fallback
+#     PENDING.<pane-key>   -> consumed on first fire, so the hook never repeats
+#
+# Subcommands:
+#   dir            print (creating it) the handoff dir for the current worktree
+#   pointer FILE   record FILE as this session's pending handoff, repoint latest.md
+#   hook           SessionStart hook; on /clear, inject the pending handoff
+#
+# The hook is a convenience layer, never load-bearing: the handoff file is
+# written before /clear, and latest.md is a stable path you can always name by
+# hand. Every failure path here exits 0 with "{}" so a broken handoff can never
+# stop a session from starting.
+
+set -uo pipefail
+
+HANDOFF_HOME="${CLAUDE_HANDOFF_HOME:-$HOME/.claude/handoffs}"
+
+# The worktree root, not the git common dir. Orca gives each parallel agent its
+# own worktree, and those are different work on different branches - so they get
+# different handoff dirs rather than sharing the repo's.
+_root() {
+  local at="${1:-$PWD}"
+  git -C "$at" rev-parse --show-toplevel 2>/dev/null || printf '%s' "$at"
+}
+
+# Basename for legibility, path hash for uniqueness: two repos can share a
+# basename (claude-setup / claude-setup-public), and two worktrees of one repo
+# always do.
+_slug() {
+  local root="$1" hash
+  hash="$(printf '%s' "$root" | shasum | cut -c1-8)"
+  printf '%s-%s' "$(basename "$root" | tr -c '[:alnum:]._-' '-')" "$hash"
+}
+
+_dir() { printf '%s/%s' "$HANDOFF_HOME" "$(_slug "$(_root "${1:-$PWD}")")"; }
+
+# One pointer per session rather than per repo: two agents can share a worktree,
+# and ORCA_PANE_KEY distinguishes them. It survives /clear because /clear does
+# not restart the process, so the pointer written before the clear is still
+# addressable after it. Outside Orca there is one session per worktree anyway.
+_key() {
+  printf '%s' "${ORCA_PANE_KEY:-local}" | tr -c '[:alnum:]._-' '-' | tail -c 40
+}
+
+cmd_dir() {
+  local dir; dir="$(_dir)"
+  mkdir -p "$dir" || return 1
+  printf '%s\n' "$dir"
+}
+
+cmd_pointer() {
+  local file="$1" dir
+  [ -n "$file" ] || { echo "claude-handoff pointer: need a file" >&2; return 2; }
+  [ -f "$file" ] || { echo "claude-handoff pointer: no such file: $file" >&2; return 2; }
+  file="$(cd "$(dirname "$file")" && pwd)/$(basename "$file")"
+  dir="$(_dir)"; mkdir -p "$dir" || return 1
+  printf '%s\n' "$file" > "$dir/PENDING.$(_key)"
+  ln -sfn "$file" "$dir/latest.md"
+  printf '%s\n' "$file"
+}
+
+_field() { # _field <name> <json>
+  if command -v jq >/dev/null 2>&1; then
+    printf '%s' "$2" | jq -r --arg k "$1" '.[$k] // empty' 2>/dev/null && return 0
+  fi
+  printf '%s' "$2" | sed -n 's/.*"'"$1"'"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -1
+}
+
+_esc() { printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'; }
+
+cmd_hook() {
+  local payload src cwd dir ptr file topic written text
+  payload="$(cat)"
+  src="$(_field source "$payload")"
+  # Only /clear. A stale handoff injecting itself into an unrelated startup is
+  # worse than typing the path by hand.
+  [ "$src" = "clear" ] || { printf '{}\n'; return 0; }
+
+  cwd="$(_field cwd "$payload")"; [ -n "$cwd" ] || cwd="$PWD"
+  dir="$(_dir "$cwd")"
+  ptr="$dir/PENDING.$(_key)"
+  if [ ! -f "$ptr" ]; then
+    # Orca's env vars absent where they were present at write time. Guess only
+    # when there is exactly one live candidate - never pick between pointers,
+    # and never rematch one this hook already consumed (hence the rename below
+    # drops the PENDING prefix rather than suffixing it).
+    set -- "$dir"/PENDING.*
+    if [ $# -eq 1 ] && [ -f "$1" ]; then ptr="$1"; else printf '{}\n'; return 0; fi
+  fi
+
+  file="$(head -1 "$ptr" 2>/dev/null)"
+  [ -n "$file" ] && [ -f "$file" ] || { printf '{}\n'; return 0; }
+  mv "$ptr" "$dir/consumed-$(basename "$ptr")" 2>/dev/null || :
+
+  topic="$(grep -m1 '^# ' "$file" 2>/dev/null | sed 's/^# *//')"
+  [ -n "$topic" ] || topic="$(basename "$file" .md)"
+  written="$(date -r "$file" '+%Y-%m-%d %H:%M' 2>/dev/null)"
+
+  # Naming the topic and write time back to the user is the point: a handoff
+  # resumed into the wrong session should be obvious in the first sentence,
+  # not discovered ten tool calls later.
+  text="A session handoff is pending for this worktree.\n\n"
+  text="${text}  File:    $(_esc "$file")\n"
+  text="${text}  Written: $(_esc "$written")\n"
+  text="${text}  Topic:   $(_esc "$topic")\n\n"
+  text="${text}Read that file now and resume the work it describes. Open your reply by "
+  text="${text}naming the topic and write time above, so the user can confirm this is the "
+  text="${text}handoff they meant to resume before you act on it."
+
+  printf '{"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":"%s"}}\n' "$text"
+}
+
+main() {
+  case "${1:-}" in
+    dir)     cmd_dir ;;
+    pointer) shift; cmd_pointer "${1:-}" ;;
+    hook)    cmd_hook ;;
+    -h|--help|"") sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//' ;;
+    *) echo "claude-handoff: unknown subcommand '$1'" >&2; return 2 ;;
+  esac
+}
+
+if [ "${BASH_SOURCE[0]}" = "${0}" ]; then
+  main "$@"
+fi

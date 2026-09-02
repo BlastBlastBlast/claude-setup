@@ -75,6 +75,16 @@
           }
         ]
       }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.local/bin/claude-handoff hook"
+          }
+        ]
+      }
     ]
   },
   "statusLine": {
