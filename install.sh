@@ -52,6 +52,7 @@ links() {
   link_file "$REPO_DIR/cmux/cmux.json"     "${XDG_CONFIG_HOME:-$HOME/.config}/cmux/cmux.json"
   link_file "$REPO_DIR/bin/wt"             "$HOME/.local/bin/wt"
   link_file "$REPO_DIR/bin/promote-skill"  "$HOME/.local/bin/promote-skill"
+  link_file "$REPO_DIR/bin/claude-handoff"   "$HOME/.local/bin/claude-handoff"
   link_file "$REPO_DIR/bin/claude-guard-destructive"   "$HOME/.local/bin/claude-guard-destructive"
   link_file "$REPO_DIR/bin/claude-guard-agent-dispatch" "$HOME/.local/bin/claude-guard-agent-dispatch"
   link_file "$REPO_DIR/shell/zshrc"                 "$HOME/.zshrc"

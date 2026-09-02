@@ -1,35 +1,80 @@
 ---
 name: handoff
-description: Use when ending a session, handing off work for a fresh session, or the user says "hand off", "wrap up", "write a handoff", or asks to /clear and continue later. Writes a continuation-ready handoff doc. Not for mid-task checkpointing (commit and keep going).
+description: Use when ending a session, handing off work for a fresh session, or the user says "hand off", "wrap up", "write a handoff", or asks to /clear and continue later. Writes a continuation-ready handoff doc outside the repo and hands back a paste-ready resume prompt. Not for mid-task checkpointing (commit and keep going).
 ---
 
 # Session handoff
 
-A handoff is complete when a fresh session can resume from one paste. Write the doc, then tell the
-user to `/clear`.
+A handoff is complete when a fresh session can resume from one paste. Write the doc, hand back the
+prompt, then tell the user to `/clear`.
 
-## The handoff doc
+## Where handoffs live
 
-Write to the repo's `docs/` (e.g. `docs/HANDOFF.md` or `docs/HANDOFF-<date>-<topic>.md`), structured
-top-down by what the next session reads first:
+Outside the working repo, so "never committed" is structural rather than a rule to remember in every
+repo's `.gitignore`. `claude-handoff` owns the layout — never hand-build these paths:
 
-1. **Continuation prompt at the very top**, ready to paste verbatim after `/clear`. It must stand
-   alone: the handoff doc's own path, the branch and commit, and the next concrete action. If the
-   next session can't resume from that one paste, the handoff isn't done.
-2. **State:** what's finished (with evidence — test results, commit SHAs), what's in flight, what's
+```
+~/.claude/handoffs/<worktree-slug>/
+  <YYYY-MM-DD-HHMM>-<topic>.md
+  latest.md            -> the newest handoff; stable path, the manual fallback
+  PENDING.<pane-key>   -> consumed by the SessionStart hook, so it fires once
+```
+
+The slug is per **worktree**, not per repo: parallel-agent tooling (Orca, `wt`) gives each agent its
+own worktree, and that is different work on a different branch. The pointer is per **session**, so
+two agents sharing one worktree cannot clobber each other.
+
+## Writing it
+
+```bash
+DIR=$(claude-handoff dir)
+FILE="$DIR/$(date +%Y-%m-%d-%H%M)-<topic>.md"
+```
+
+Write to `$FILE`, structured top-down by what the next session reads first. **No continuation prompt
+inside the file** — the file is what the prompt points *at*, so a copy of it at the top is just
+something to get stale:
+
+1. **`# <Topic>`** as the first line. The hook reads this heading back to the user to confirm it
+   resumed the right handoff, so make it specific — "Handoff skill: hook + skill wired, tests
+   pending", not "Handoff".
+2. **State:** what's finished (with evidence — test output, commit SHAs), what's in flight, what's
    untouched.
 3. **Decisions and their why** — anything a fresh session would otherwise re-litigate.
 4. **Gotchas discovered** — the non-obvious things that cost time this session.
+5. **Next action** — the single concrete thing to do first.
 
-## Before writing
+Before writing: commit finished work, so the doc references commits rather than uncommitted state.
+Conclusions live in the doc, not in chat scrollback — write them down even if they were already said
+in conversation.
 
-- Commit finished work first; the doc references commits, not uncommitted state.
-- Conclusions live in the doc, not in the chat scrollback — write them down even if they were
-  already said in conversation.
-- If the user should eyeball something before continuing, offer crit (`crit` for the working diff,
-  `crit <file>` for a doc) rather than pointing at a file — only when `crit` is on `PATH`.
+## Then register and hand back
 
-## After writing
+```bash
+claude-handoff pointer "$FILE"          # arms the hook, repoints latest.md
+```
 
-Tell the user: the doc's path, and that they can `/clear` and paste the continuation prompt to
-resume.
+Print the continuation prompt in chat **and** copy it, because `/clear` wipes the transcript — a
+prompt that exists only in scrollback is unrecoverable the moment it is needed:
+
+```bash
+printf '%s' "Resume the handoff at $FILE — read it and continue from its Next action." | pbcopy
+```
+
+Close by telling the user, in this order: the file path, that the prompt is in their clipboard, and
+that after `/clear` the hook should offer the handoff on its own — `⌘V` if it doesn't.
+
+## Why four layers
+
+The hook is convenience, never load-bearing. The file is on disk before the `/clear`, so the
+fallback ladder is: hook fires → type `go`; hook silent → `⌘V`; clipboard clobbered → say
+`resume the handoff at ~/.claude/handoffs/<slug>/latest.md`. No rung loses work.
+
+To satisfy yourself the hook works before trusting it — this only prints what Claude Code would
+send, and changes nothing:
+
+```bash
+echo '{"hook_event_name":"SessionStart","source":"clear","cwd":"'"$PWD"'"}' | claude-handoff hook
+```
+
+Fires on `/clear` only. After quitting and relaunching, resume via `latest.md` by hand.
